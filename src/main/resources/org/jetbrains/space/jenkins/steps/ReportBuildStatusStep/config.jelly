@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+
+    <f:entry title="Build status to report">
+        <f:select field="buildStatus" />
+    </f:entry>
+
+    <f:advanced>
+        <f:entry title="JetBrains Space connection" field="spaceConnectionId">
+            <f:select clazz="jb-space-autofill jb-space-cache"/>
+        </f:entry>
+
+        <f:entry title="Project" field="projectKey">
+            <f:select clazz="jb-space-autofill jb-space-cache"/>
+        </f:entry>
+
+        <f:entry title="Repository" field="repositoryName">
+            <f:select clazz="jb-space-autofill jb-space-cache"/>
+        </f:entry>
+
+        <f:entry title="Revision" field="revision">
+            <f:textbox />
+        </f:entry>
+
+        <f:entry title="Branch" field="branch">
+            <f:textbox />
+        </f:entry>
+
+    </f:advanced>
+
+    <script type="text/javascript" src="${rootURL}/plugin/jetbrains-space/js/select-autofill.js" />
+</j:jelly>

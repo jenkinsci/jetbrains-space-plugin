@@ -1,0 +1,2 @@
+_extends: .github
+tag-template: jetbrains-space-plugin-$NEXT_MINOR_VERSION

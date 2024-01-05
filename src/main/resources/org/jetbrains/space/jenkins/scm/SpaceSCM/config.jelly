@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+    <f:entry title="JetBrains Space connection">
+        <f:select field="spaceConnectionId" clazz="jb-space-autofill jb-space-cache" />
+    </f:entry>
+
+    <f:entry title="Project">
+        <f:select field="projectKey" clazz="jb-space-autofill jb-space-cache" />
+    </f:entry>
+
+    <f:entry title="Repository">
+        <f:select field="repositoryName" clazz="jb-space-autofill jb-space-cache" />
+    </f:entry>
+
+    <f:entry title="Branches to build">
+        <f:repeatableProperty field="branches" add="Add branch" minimum="1" />
+    </f:entry>
+
+    <f:entry title="Post build status to Space">
+        <f:checkbox field="postBuildStatusToSpace" default="true" />
+    </f:entry>
+
+    <j:if test="${descriptor.showGitToolOptions}">
+        <f:entry title="Git executable" field="gitTool">
+            <f:select />
+        </f:entry>
+    </j:if>
+
+    <j:if test="${!descriptor.extensionDescriptors.isEmpty()}">
+        <f:entry title="Additional Behaviours">
+            <f:repeatableHeteroProperty field="extensions" addCaption="Add" hasHeader="true" />
+        </f:entry>
+    </j:if>
+
+    <script type="text/javascript" src="${rootURL}/plugin/jetbrains-space/js/select-autofill.js" />
+</j:jelly>

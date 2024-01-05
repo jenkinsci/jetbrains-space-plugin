@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:s="/jenkins/scm/api/form">
+    <f:entry title="JetBrains Space connection">
+        <f:select field="spaceConnectionId" clazz="jb-space-autofill jb-space-cache" />
+    </f:entry>
+
+    <f:entry title="Project">
+        <f:select field="projectKey" clazz="jb-space-autofill jb-space-cache" />
+    </f:entry>
+
+    <f:entry title="Repository">
+        <f:select field="repositoryName" clazz="jb-space-autofill jb-space-cache" />
+    </f:entry>
+
+    <f:entry title="Behaviours">
+        <s:traits field="traits" />
+    </f:entry>
+
+    <f:invisibleEntry>
+        <f:textbox field="id" />
+    </f:invisibleEntry>
+
+    <script type="text/javascript" src="${rootURL}/plugin/jetbrains-space/js/select-autofill.js" />
+
+</j:jelly>

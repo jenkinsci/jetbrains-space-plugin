@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+    <f:entry title="Trigger on commits" field="triggerOnBranches">
+        <f:checkbox />
+    </f:entry>
+
+    <f:optionalBlock title="Trigger on merge requests" field="triggerOnMergeRequests">
+        <f:entry title="On merge request created" field="onCreate">
+            <f:checkbox default="true" />
+        </f:entry>
+        <f:entry title="On push to source branch" field="onPushToSourceBranch">
+            <f:checkbox default="true" />
+        </f:entry>
+        <f:entry title="On push to target branch" field="onPushToTargetBranch">
+            <f:checkbox />
+        </f:entry>
+        <f:entry title="On approved by all reviewers" field="onApprovedByAllReviewers">
+            <f:checkbox />
+        </f:entry>
+        <f:optionalBlock title="Filter merge requests by title" field="titlePrefixFilter">
+            <f:entry title="should start with" field="include">
+                <f:textbox />
+            </f:entry>
+            <f:entry title="should NOT start with" field="exclude">
+                <f:textbox />
+            </f:entry>
+        </f:optionalBlock>
+    </f:optionalBlock>
+
+    <f:optionalBlock title="Custom Space connection" field="customSpaceRepository">
+        <f:entry title="Connection">
+            <f:select field="spaceConnectionId" clazz="jb-space-autofill jb-space-cache" />
+        </f:entry>
+
+        <f:entry title="Project">
+            <f:select field="projectKey" clazz="jb-space-autofill jb-space-cache" />
+        </f:entry>
+
+        <f:entry title="Repository">
+            <f:select field="repositoryName" clazz="jb-space-autofill jb-space-cache" />
+        </f:entry>
+    </f:optionalBlock>
+
+    <f:entry title="Branches">
+        <f:entry title="Include">
+            <f:textbox name="includeBranchesSpec" field="includeBranchesSpec" autoCompleteDelimChar=","/>
+        </f:entry>
+        <f:entry title="Exclude">
+            <f:textbox name="excludeBranchesSpec" field="excludeBranchesSpec" autoCompleteDelimChar=","/>
+        </f:entry>
+    </f:entry>
+
+    <script type="text/javascript" src="${rootURL}/plugin/jetbrains-space/js/select-autofill.js" />
+</j:jelly>

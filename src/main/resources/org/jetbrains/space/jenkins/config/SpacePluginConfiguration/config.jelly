@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+    <f:section title="JetBrains Space">
+        <f:entry title="Connections">
+            <f:repeatableProperty field="connections">
+                <f:block>
+                    <div align="right">
+                        <f:repeatableDeleteButton />
+                    </div>
+                </f:block>
+            </f:repeatableProperty>
+        </f:entry>
+    </f:section>
+</j:jelly>
