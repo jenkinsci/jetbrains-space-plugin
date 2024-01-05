@@ -188,7 +188,7 @@ public class SpaceSCM extends SCM {
             SpaceRepositoryBrowser repoBrowser = new SpaceRepositoryBrowser(spaceConnection.get(), projectKey, repositoryName);
             gitSCM = new GitSCM(singletonList(remoteConfig), branches, repoBrowser, gitTool, extensions);
         } catch (Throwable ex) {
-            LOGGER.log(Level.WARNING, ex.toString());
+            LOGGER.log(Level.WARNING, "Error connecting to JetBrains Space", ex);
             throw new RuntimeException("Error connecting to JetBrains Space - " + ex);
         }
     }
@@ -199,40 +199,39 @@ public class SpaceSCM extends SCM {
     }
 
     public static UserRemoteConfig getRepositoryConfig(SpaceConnection spaceConnection, String projectKey, String repositoryName) throws InterruptedException {
-        SpaceClient spaceApiClient = spaceConnection.getApiClient();
-        Projects projectsApi = new Projects(spaceApiClient);
-        RepositoryUrls repoUrls = BuildersKt.runBlocking(
-                EmptyCoroutineContext.INSTANCE,
-                (scope, continuation) -> projectsApi.getRepositories().url(
-                        new ProjectIdentifier.Key(projectKey),
-                        repositoryName,
-                        (r) -> {
-                            r.httpUrl();
-                            r.sshUrl();
-                            return Unit.INSTANCE;
-                        },
-                        continuation
-                )
-        );
-        return new UserRemoteConfig(
-                isBlank(spaceConnection.getSshCredentialId()) ? repoUrls.getHttpUrl() : repoUrls.getSshUrl(),
-                repositoryName,
-                null,
-                isBlank(spaceConnection.getSshCredentialId()) ? spaceConnection.getApiCredentialId() : spaceConnection.getSshCredentialId()
-        );
+        try (SpaceClient spaceApiClient = spaceConnection.getApiClient()) {
+            Projects projectsApi = new Projects(spaceApiClient);
+            RepositoryUrls repoUrls = BuildersKt.runBlocking(
+                    EmptyCoroutineContext.INSTANCE,
+                    (scope, continuation) -> projectsApi.getRepositories().url(
+                            new ProjectIdentifier.Key(projectKey),
+                            repositoryName,
+                            (r) -> {
+                                r.httpUrl();
+                                r.sshUrl();
+                                return Unit.INSTANCE;
+                            },
+                            continuation
+                    )
+            );
+            return new UserRemoteConfig(
+                    isBlank(spaceConnection.getSshCredentialId()) ? repoUrls.getHttpUrl() : repoUrls.getSshUrl(),
+                    repositoryName,
+                    null,
+                    isBlank(spaceConnection.getSshCredentialId()) ? spaceConnection.getApiCredentialId() : spaceConnection.getSshCredentialId()
+            );
+        }
     }
 
     @Symbol("SpaceGit")
     @Extension
     public static class DescriptorImpl extends SCMDescriptor<SpaceSCM> {
 
-        private static final Logger LOGGER = Logger.getLogger(SpaceSCM.class.getName() + ".Descriptor");
-
         @Inject
         private SpacePluginConfiguration spacePluginConfiguration;
 
         @Inject
-        private SpaceSCMParamsProvider scmParamsValidator;
+        private SpaceSCMParamsProvider scmParamsProvider;
 
         private final GitSCM.DescriptorImpl gitScmDescriptor;
 
@@ -252,17 +251,17 @@ public class SpaceSCM extends SCM {
 
         @POST
         public ListBoxModel doFillSpaceConnectionIdItems() {
-            return scmParamsValidator.doFillSpaceConnectionIdItems();
+            return scmParamsProvider.doFillSpaceConnectionIdItems();
         }
 
         @POST
         public HttpResponse doFillProjectKeyItems(@QueryParameter String spaceConnectionId) {
-            return scmParamsValidator.doFillProjectKeyItems(spaceConnectionId);
+            return scmParamsProvider.doFillProjectKeyItems(spaceConnectionId);
         }
 
         @POST
         public HttpResponse doFillRepositoryNameItems(@QueryParameter String spaceConnectionId, @QueryParameter String projectKey) {
-            return scmParamsValidator.doFillRepositoryNameItems(spaceConnectionId, projectKey);
+            return scmParamsProvider.doFillRepositoryNameItems(spaceConnectionId, projectKey);
         }
 
         @POST

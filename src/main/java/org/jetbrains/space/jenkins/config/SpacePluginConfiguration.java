@@ -83,7 +83,7 @@ public class SpacePluginConfiguration extends GlobalConfiguration {
                     try {
                         return Objects.equals(new URL(c.getBaseUrl()).getHost(), baseUrlHostname);
                     } catch (MalformedURLException e) {
-                        LOGGER.severe("Malformed Space connection base url - " + c.getBaseUrl());
+                        LOGGER.warning("Malformed Space connection base url - " + c.getBaseUrl());
                         return false;
                     }
                 })

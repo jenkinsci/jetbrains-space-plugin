@@ -88,8 +88,13 @@ public class SCMListenerImpl extends SCMListener {
         build.addAction(revisionAction);
 
         if (revisionAction.getPostBuildStatusToSpace()) {
-            SpaceApiClient spaceApiClient = new SpaceApiClient(spaceConnection, revisionAction.getProjectKey(), revisionAction.getRepositoryName());
-            spaceApiClient.postBuildStatus(revisionAction, build, null, listener);
+            try (SpaceApiClient spaceApiClient = new SpaceApiClient(spaceConnection)) {
+                spaceApiClient.postBuildStatus(revisionAction, build, null);
+            } catch (Throwable ex) {
+                String message = "Failed to post build status to JetBrains Space, details: " + ex;
+                LOGGER.warning(message);
+                listener.getLogger().println(message);
+            }
         }
     }
 

@@ -42,8 +42,13 @@ public class RunListenerImpl extends RunListener<Run<?, ?>> {
                 LOGGER.info("RunListenerImpl.onCompleted - could not find Space connection");
                 return;
             }
-            SpaceApiClient spaceApiClient = new SpaceApiClient(spaceConnection.get(), action.getProjectKey(), action.getRepositoryName());
-            spaceApiClient.postBuildStatus(action, build, null, listener);
+            try (SpaceApiClient spaceApiClient = new SpaceApiClient(spaceConnection.get())) {
+                spaceApiClient.postBuildStatus(action, build, null);
+            } catch (Throwable ex) {
+                String message = "Failed to post build status to JetBrains Space, details: " + ex;
+                LOGGER.warning(message);
+                listener.getLogger().println(message);
+            }
         }
     }
 }

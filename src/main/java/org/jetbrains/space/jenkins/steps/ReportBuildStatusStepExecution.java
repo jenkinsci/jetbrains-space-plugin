@@ -90,6 +90,7 @@ public class ReportBuildStatusStepExecution extends StepExecution {
                     }
             );
             future.whenComplete((unit, ex) -> {
+                spaceApiClient.close();
                 if (ex != null) {
                     getContext().onFailure(ex);
                 } else {

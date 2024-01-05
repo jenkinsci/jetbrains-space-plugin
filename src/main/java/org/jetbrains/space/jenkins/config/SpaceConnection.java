@@ -13,18 +13,15 @@ import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import jenkins.model.Jenkins;
 import kotlin.Unit;
-import kotlin.coroutines.EmptyCoroutineContext;
-import kotlinx.coroutines.BuildersKt;
+import org.jetbrains.space.jenkins.SpaceApiClient;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
 import space.jetbrains.api.runtime.SpaceAppInstance;
 import space.jetbrains.api.runtime.SpaceAuth;
 import space.jetbrains.api.runtime.SpaceClient;
-import space.jetbrains.api.runtime.resources.Applications;
 
 import javax.annotation.Nullable;
-
 import java.util.UUID;
 
 import static com.cloudbees.plugins.credentials.CredentialsMatchers.firstOrNull;
@@ -120,13 +117,8 @@ public class SpaceConnection extends AbstractDescribableImpl<SpaceConnection> {
                 @QueryParameter String apiCredentialId
         ) {
             Jenkins.get().checkPermission(Item.CONFIGURE);
-            try {
-                SpaceClient spaceClient = new SpaceConnection(null, "test", baseUrl, apiCredentialId, null).getApiClient();
-                Applications applicationsApi = new Applications(spaceClient);
-                BuildersKt.runBlocking(
-                        EmptyCoroutineContext.INSTANCE,
-                        (scope, continuation) -> applicationsApi.reportApplicationAsHealthy(continuation)
-                );
+            try (SpaceApiClient spaceClient = new SpaceApiClient(baseUrl, apiCredentialId)) {
+                spaceClient.testConnection();
             } catch (Throwable ex) {
                 return FormValidation.error(ex, "Couldn't connect to JetBrains Space API");
             }

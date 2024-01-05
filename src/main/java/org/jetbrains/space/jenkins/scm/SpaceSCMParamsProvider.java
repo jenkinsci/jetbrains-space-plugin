@@ -40,13 +40,13 @@ public class SpaceSCMParamsProvider {
     }
 
     public HttpResponse doFillProjectKeyItems(String spaceConnectionId) {
-        Optional<SpaceClient> spaceApiClient = spacePluginConfiguration.getSpaceApiClient(spaceConnectionId);
-        if (spaceApiClient.isEmpty()) {
+        Optional<SpaceClient> optSpaceApiClient = spacePluginConfiguration.getSpaceApiClient(spaceConnectionId);
+        if (optSpaceApiClient.isEmpty()) {
             return errorWithoutStack(HTTP_BAD_REQUEST, "Space connection is not selected");
         }
 
-        try {
-            Projects projectsApi = new Projects(spaceApiClient.get());
+        try (SpaceClient spaceApiClient = optSpaceApiClient.get()) {
+            Projects projectsApi = new Projects(spaceApiClient);
             Batch<PR_Project> projects = BuildersKt.runBlocking(
                     EmptyCoroutineContext.INSTANCE,
                     (scope, continuation) -> projectsApi.getAllProjects(
@@ -70,14 +70,14 @@ public class SpaceSCMParamsProvider {
                     })
                     .collect(Collectors.toCollection(ListBoxModel::new));
         } catch (Throwable ex) {
-            LOGGER.log(Level.WARNING, ex.toString());
+            LOGGER.log(Level.WARNING, "Error performing request to JetBrains Space", ex);
             return errorWithoutStack(HTTP_INTERNAL_ERROR, "Error performing request to JetBrains Space: " + ex);
         }
     }
 
     public HttpResponse doFillRepositoryNameItems(String spaceConnectionId, String projectKey) {
-        Optional<SpaceClient> spaceApiClient = spacePluginConfiguration.getSpaceApiClient(spaceConnectionId);
-        if (spaceApiClient.isEmpty()) {
+        Optional<SpaceClient> optSpaceApiClient = spacePluginConfiguration.getSpaceApiClient(spaceConnectionId);
+        if (optSpaceApiClient.isEmpty()) {
             return errorWithoutStack(HTTP_BAD_REQUEST, "Space connection is not selected");
         }
 
@@ -85,8 +85,8 @@ public class SpaceSCMParamsProvider {
             return errorWithoutStack(HTTP_BAD_REQUEST, "Space project is not selected");
         }
 
-        try {
-            Projects projectsApi = new Projects(spaceApiClient.get());
+        try (SpaceClient spaceApiClient = optSpaceApiClient.get()) {
+            Projects projectsApi = new Projects(spaceApiClient);
             Batch<RepositoryDetails> repos = BuildersKt.runBlocking(
                     EmptyCoroutineContext.INSTANCE,
                     (scope, continuation) -> projectsApi.getRepositories().getFind().findRepositories(

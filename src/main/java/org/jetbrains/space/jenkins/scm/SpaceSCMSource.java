@@ -134,35 +134,26 @@ public class SpaceSCMSource extends SCMSource {
         private SpacePluginConfiguration spacePluginConfiguration;
 
         @Inject
-        private SpaceSCMParamsProvider scmParamsValidator;
-
-        private final GitSCMSource.DescriptorImpl gitScmSourceDescriptor;
-
-        public DescriptorImpl() {
-            super();
-            gitScmSourceDescriptor = new GitSCMSource.DescriptorImpl();
-        }
-
+        private SpaceSCMParamsProvider scmParamsProvider;
 
         @Override
         public String getDisplayName() {
             return "JetBrains Space";
         }
 
-
         @POST
         public ListBoxModel doFillSpaceConnectionIdItems() {
-            return scmParamsValidator.doFillSpaceConnectionIdItems();
+            return scmParamsProvider.doFillSpaceConnectionIdItems();
         }
 
         @POST
         public HttpResponse doFillProjectKeyItems(@QueryParameter String spaceConnectionId) {
-            return scmParamsValidator.doFillProjectKeyItems(spaceConnectionId);
+            return scmParamsProvider.doFillProjectKeyItems(spaceConnectionId);
         }
 
         @POST
         public HttpResponse doFillRepositoryNameItems(@QueryParameter String spaceConnectionId, @QueryParameter String projectKey) {
-            return scmParamsValidator.doFillRepositoryNameItems(spaceConnectionId, projectKey);
+            return scmParamsProvider.doFillRepositoryNameItems(spaceConnectionId, projectKey);
         }
     }
 }
