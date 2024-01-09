@@ -6,6 +6,7 @@ import hudson.Extension;
 import hudson.util.Secret;
 import org.kohsuke.stapler.DataBoundConstructor;
 
+// Written in Java because of protected BaseStandardCredentialsDescriptor supertype exposed by public DescriptorImpl class
 public class SpaceApiCredentialsImpl extends BaseStandardCredentials implements SpaceApiCredentials {
     private final String clientId;
     private final Secret clientSecret;
