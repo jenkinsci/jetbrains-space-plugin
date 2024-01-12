@@ -9,6 +9,7 @@ import jenkins.scm.api.*
 import jenkins.scm.api.trait.SCMSourceTrait
 import org.jetbrains.space.jenkins.config.SpacePluginConfiguration
 import org.jetbrains.space.jenkins.config.getConnectionById
+import org.jetbrains.space.jenkins.config.getUserRemoteConfig
 import org.kohsuke.stapler.DataBoundConstructor
 import org.kohsuke.stapler.HttpResponse
 import org.kohsuke.stapler.QueryParameter

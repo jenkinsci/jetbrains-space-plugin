@@ -8,6 +8,7 @@ import kotlinx.coroutines.supervisorScope
 import org.jenkinsci.plugins.workflow.steps.StepContext
 import org.jenkinsci.plugins.workflow.steps.StepExecution
 import org.jetbrains.space.jenkins.config.SpacePluginConfiguration
+import org.jetbrains.space.jenkins.config.getApiClient
 import org.jetbrains.space.jenkins.config.getConnectionById
 import space.jetbrains.api.runtime.resources.projects
 import space.jetbrains.api.runtime.types.CommitExecutionStatus
@@ -66,5 +67,14 @@ class ReportBuildStatusStepExecution(
             }
         }
         return false
+    }
+}
+
+class FailureStepExecution(private val message: String, context: StepContext) : StepExecution(context) {
+    override fun start(): Boolean {
+        val ex: Throwable = IllegalArgumentException(message)
+        ex.stackTrace = arrayOfNulls(0)
+        context.onFailure(ex)
+        return true
     }
 }

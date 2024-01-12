@@ -3,6 +3,7 @@ package org.jetbrains.space.jenkins.scm
 import hudson.util.ListBoxModel
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.space.jenkins.config.SpacePluginConfiguration
+import org.jetbrains.space.jenkins.config.getApiClient
 import org.jetbrains.space.jenkins.config.getConnectionById
 import org.kohsuke.stapler.HttpResponse
 import org.kohsuke.stapler.HttpResponses

@@ -6,26 +6,17 @@
     </f:invisibleEntry>
 
     <f:radioBlock name="triggerType" value="Branches" title="Trigger on commits" checked="${instance.triggerType == 'Branches' }" inline="true">
-        <f:entry title="Branch">
+        <f:entry title="Branches">
             <f:textbox name="branchSpec" field="branchSpec" placeholder="*" autoCompleteDelimChar=","/>
         </f:entry>
     </f:radioBlock>
 
     <f:radioBlock name="triggerType" value="MergeRequests" title="Trigger on merge requests changes" checked="${instance.triggerType == 'MergeRequests' }" inline="true">
-        <f:entry title="On merge request created" field="onMergeRequestCreate">
-            <f:checkbox default="true" />
-        </f:entry>
-        <f:entry title="On push to source branch" field="onMergeRequestPushToSourceBranch">
-            <f:checkbox default="true" />
-        </f:entry>
-        <f:entry title="On push to target branch" field="onMergeRequestPushToTargetBranch">
+        <f:entry title="Build only after merge request is approved by all reviewers" field="mergeRequestApprovalsRequired">
             <f:checkbox />
         </f:entry>
-        <f:entry title="On approved by all reviewers" field="onMergeRequestApprovedByAllReviewers">
-            <f:checkbox />
-        </f:entry>
-        <f:entry title="Branch">
-            <f:textbox name="mergeRequestSourceBranchSpec" field="mergeRequestSourceBranchSpec" placeholder="*" autoCompleteDelimChar=","/>
+        <f:entry title="Branches">
+            <f:textbox name="mergeRequestBranchesSpec" field="mergeRequestBranchesSpec" placeholder="*" autoCompleteDelimChar=","/>
         </f:entry>
         <f:entry title="Title filter regex">
             <f:textbox name="mergeRequestTitleRegex" field="mergeRequestTitleRegex" placeholder="Leave blank for none" />
