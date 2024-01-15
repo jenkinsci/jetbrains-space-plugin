@@ -18,14 +18,21 @@ public class SpaceTriggerEnvironmentContributor extends EnvironmentContributor {
                 .map((a) -> (CauseAction) a)
                 .map((a) -> a.findCause(SpaceWebhookTriggerCause.class))
                 .findFirst()
-                .map(SpaceWebhookTriggerCause::getMergeRequest)
-                .ifPresent(mergeRequest -> {
-                    envs.put(Env.MERGE_REQUEST_ID, mergeRequest.getId());
-                    envs.put(Env.MERGE_REQUEST_NUMBER, Integer.toString(mergeRequest.getNumber()));
-                    envs.put(Env.MERGE_REQUEST_URL, mergeRequest.getUrl());
-                    envs.put(Env.MERGE_REQUEST_TITLE, mergeRequest.getTitle());
-                    if (mergeRequest.getSourceBranch() != null) {
-                        envs.put(Env.MERGE_REQUEST_SOURCE_BRANCH, mergeRequest.getSourceBranch());
+                .ifPresent(cause -> {
+                    envs.put(Env.SPACE_URL, cause.getSpaceUrl());
+                    envs.put(Env.PROJECT_KEY, cause.getProjectKey());
+                    envs.put(Env.REPOSITORY_NAME, cause.getRepositoryName());
+
+                    MergeRequest mergeRequest = cause.getMergeRequest();
+                    if (mergeRequest != null) {
+                        envs.put(Env.PROJECT_KEY, mergeRequest.getProjectKey());
+                        envs.put(Env.MERGE_REQUEST_ID, mergeRequest.getId());
+                        envs.put(Env.MERGE_REQUEST_NUMBER, Integer.toString(mergeRequest.getNumber()));
+                        envs.put(Env.MERGE_REQUEST_URL, mergeRequest.getUrl());
+                        envs.put(Env.MERGE_REQUEST_TITLE, mergeRequest.getTitle());
+                        if (mergeRequest.getSourceBranch() != null) {
+                            envs.put(Env.MERGE_REQUEST_SOURCE_BRANCH, mergeRequest.getSourceBranch());
+                        }
                     }
                 });
     }

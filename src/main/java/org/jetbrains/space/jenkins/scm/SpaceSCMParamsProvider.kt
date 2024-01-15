@@ -5,6 +5,7 @@ import kotlinx.coroutines.runBlocking
 import org.jetbrains.space.jenkins.config.SpacePluginConfiguration
 import org.jetbrains.space.jenkins.config.getApiClient
 import org.jetbrains.space.jenkins.config.getConnectionById
+import org.jetbrains.space.jenkins.config.getConnectionByIdOrName
 import org.kohsuke.stapler.HttpResponse
 import org.kohsuke.stapler.HttpResponses
 import space.jetbrains.api.runtime.resources.projects
@@ -23,8 +24,14 @@ class SpaceSCMParamsProvider {
     fun doFillSpaceConnectionIdItems() =
         ListBoxModel(spacePluginConfiguration.connections.map { ListBoxModel.Option(it.name, it.id) })
 
-    fun doFillProjectKeyItems(spaceConnectionId: String): HttpResponse {
-        val spaceApiClient = spacePluginConfiguration.getConnectionById(spaceConnectionId)?.getApiClient()
+    fun doFillSpaceConnectionNameItems() =
+        ListBoxModel(spacePluginConfiguration.connections.map { ListBoxModel.Option(it.name) })
+
+    fun doFillProjectKeyItems(spaceConnectionId: String) =
+        doFillProjectKeyItems(spaceConnectionId, null)
+
+    fun doFillProjectKeyItems(spaceConnectionId: String?, spaceConnectionName: String?): HttpResponse {
+        val spaceApiClient = spacePluginConfiguration.getConnectionByIdOrName(spaceConnectionId, spaceConnectionName)?.getApiClient()
             ?: return HttpResponses.errorWithoutStack(
                 HttpURLConnection.HTTP_BAD_REQUEST,
                 "Space connection is not selected"

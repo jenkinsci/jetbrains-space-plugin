@@ -26,31 +26,36 @@ fun onScmCheckout(build: Run<*, *>, scm: SCM, listener: TaskListener, spacePlugi
         LOGGER.info("SpaceSCMListener.onCheckout - no underlying Git SCM instance")
         return
     }
-    val env = mutableMapOf<String, String>()
-    underlyingGitScm.buildEnvironment(build, env)
+    val gitScmEnv = mutableMapOf<String, String>()
+    underlyingGitScm.buildEnvironment(build, gitScmEnv)
 
-    val spaceRepository = if (scm is SpaceSCM) {
-        spacePluginConfiguration
-            .getConnectionByIdOrName(scm.spaceConnectionId, scm.spaceConnection)
-            ?.let { SpaceRepository(it, scm.projectKey, scm.repositoryName) }
-    } else {
-//            spaceRepository = spacePluginConfiguration.getSpaceRepositoryByGitCloneUrl(env.get(GitSCM.GIT_URL));
-        null
+    val spaceRepository = when {
+        scm is SpaceSCM ->
+            spacePluginConfiguration
+                .getConnectionByIdOrName(scm.spaceConnectionId, scm.spaceConnection)
+                ?.let { SpaceRepository(it, scm.projectKey, scm.repositoryName) }
+
+        gitScmEnv[GitSCM.GIT_URL] != null && gitScmEnv[GitSCM.GIT_COMMIT] != null ->
+            spacePluginConfiguration.getSpaceRepositoryByGitCloneUrl(gitScmEnv[GitSCM.GIT_URL]!!)
+
+        else ->
+            null
     }
-
     if (spaceRepository == null) {
-        LOGGER.info("SpaceSCMListener.onCheckout - no Space SCM found")
+        LOGGER.info("SpaceSCMListener.onCheckout - no Space git repository found")
         return
     }
 
     val spaceConnection = spaceRepository.spaceConnection
     val revisionAction = SpaceGitScmCheckoutAction(
         spaceConnectionId = spaceConnection.id,
+        spaceUrl = spaceConnection.baseUrl,
         projectKey = spaceRepository.projectKey,
         repositoryName = spaceRepository.repositoryName,
-        branch = env[GitSCM.GIT_BRANCH]!!,
-        revision = env[GitSCM.GIT_COMMIT]!!,
-        postBuildStatusToSpace = (scm as? SpaceSCM)?.postBuildStatusToSpace ?: false
+        branch = gitScmEnv[GitSCM.GIT_BRANCH].orEmpty(),
+        revision = gitScmEnv[GitSCM.GIT_COMMIT]!!,
+        postBuildStatusToSpace = (scm as? SpaceSCM)?.postBuildStatusToSpace ?: false,
+        gitScmEnv
     )
     build.addAction(revisionAction)
 

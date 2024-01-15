@@ -1,7 +1,6 @@
 package org.jetbrains.space.jenkins.steps;
 
 import hudson.Extension;
-import hudson.Launcher;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
@@ -138,7 +137,7 @@ public class ReportBuildStatusStep extends Step {
         }
 
         if (actions.isEmpty()) {
-            return new FailureStepExecution("Space connection is not specified neither in the workflow step nor as the workflow source control (SCM)", context);
+            return new FailureStepExecution("Space connection is specified neither in the workflow step nor as the workflow source control (SCM)", context);
         }
 
         for (PostBuildStatusAction a : actions) {
@@ -226,7 +225,7 @@ public class ReportBuildStatusStep extends Step {
 
         @Override
         public Set<? extends Class<?>> getRequiredContext() {
-            return new HashSet<>(Arrays.asList(Run.class, Launcher.class, TaskListener.class));
+            return new HashSet<>(Arrays.asList(Run.class, TaskListener.class));
         }
 
         @Override

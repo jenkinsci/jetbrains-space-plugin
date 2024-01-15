@@ -70,6 +70,15 @@ fun SpaceConnection.getUserRemoteConfig(projectKey: String, repositoryName: Stri
     }
 }
 
+fun SpacePluginConfiguration.getConnectionByClientId(clientId: String): SpaceConnection? {
+    val creds = CredentialsProvider
+        .lookupCredentialsInItemGroup(SpaceApiCredentials::class.java, Jenkins.get(), ACL.SYSTEM2)
+        .firstOrNull { it.clientId == clientId }
+        ?: return null
+
+    return connections.firstOrNull { it.apiCredentialId == creds.id }
+}
+
 fun SpacePluginConfiguration.getConnectionById(id: String): SpaceConnection? {
     return if (id.isNotBlank()) connections.firstOrNull { it.id == id } else null
 }

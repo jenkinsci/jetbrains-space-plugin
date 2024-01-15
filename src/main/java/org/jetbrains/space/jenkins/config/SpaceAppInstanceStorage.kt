@@ -22,7 +22,7 @@ class SpaceAppInstanceStorage : SpaceAppInstanceStorage {
             .firstOrNull { it.clientId == clientId }
             ?: return null
 
-        val connection = spacePluginConfiguration.getConnections().firstOrNull { it.apiCredentialId == creds.id }
+        val connection = spacePluginConfiguration.connections.firstOrNull { it.apiCredentialId == creds.id }
             ?: return null
 
         return SpaceAppInstance(creds.clientId, creds.clientSecret.plainText, connection.baseUrl);

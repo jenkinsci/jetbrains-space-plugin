@@ -19,6 +19,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.space.jenkins.config.SpaceConnection;
 import org.jetbrains.space.jenkins.config.SpacePluginConfiguration;
 import org.jetbrains.space.jenkins.config.UtilsKt;
+import org.jetbrains.space.jenkins.trigger.Env;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.HttpResponse;
@@ -159,11 +160,18 @@ public class SpaceSCM extends SCM {
     }
 
     @Override
+    public void buildEnvironment(@NotNull Run<?, ?> build, java.util.@NotNull Map<String, String> env) {
+        env.put(Env.PROJECT_KEY, projectKey);
+        env.put(Env.REPOSITORY_NAME, repositoryName);
+        getAndInitializeGitScmIfNull().buildEnvironment(build, env);
+    }
+
+    @Override
     public ChangeLogParser createChangeLogParser() {
         return gitSCM.createChangeLogParser();
     }
 
-    public GitSCM getAndInitializeGitScmIfNull() {
+    private GitSCM getAndInitializeGitScmIfNull() {
         if (gitSCM == null) {
             initializeGitScm();
         }

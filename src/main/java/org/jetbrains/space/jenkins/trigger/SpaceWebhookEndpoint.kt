@@ -1,11 +1,15 @@
 package org.jetbrains.space.jenkins.trigger
 
+import hudson.ExtensionList
 import hudson.model.CauseAction
 import io.ktor.http.*
 import jenkins.model.Jenkins
 import jenkins.triggers.SCMTriggerItem
 import jenkins.triggers.TriggeredItem
 import kotlinx.coroutines.runBlocking
+import org.jetbrains.space.jenkins.config.SpaceConnection
+import org.jetbrains.space.jenkins.config.SpacePluginConfiguration
+import org.jetbrains.space.jenkins.config.getConnectionByClientId
 import org.kohsuke.stapler.StaplerRequest
 import org.kohsuke.stapler.StaplerResponse
 import space.jetbrains.api.ExperimentalSpaceSdkApi
@@ -62,7 +66,13 @@ fun SpaceWebhookEndpoint.doTrigger(request: StaplerRequest, response: StaplerRes
                 return@processPayload SpaceHttpResponse.RespondWithCode(HttpStatusCode.BadRequest)
             }
 
-            val result = getTriggeredBuildCause(trigger, payload.payload, this.appInstance.spaceServer.serverUrl)
+            val spacePluginConfiguration = ExtensionList.lookup(SpacePluginConfiguration::class.java).singleOrNull()
+                ?: error("Space plugin configuration cannot be resolved")
+
+            val spaceConnection = spacePluginConfiguration.getConnectionByClientId(payload.clientId)
+                ?: error("Space connection cannot be found for client id specified in webhook payload")
+
+            val result = getTriggeredBuildCause(trigger, payload.payload, spaceConnection)
 
             when (result) {
                 is WebhookEventResult.RunBuild -> {
@@ -88,7 +98,7 @@ fun SpaceWebhookEndpoint.doTrigger(request: StaplerRequest, response: StaplerRes
     }
 }
 
-private fun getTriggeredBuildCause(trigger: SpaceWebhookTrigger, event: WebhookEvent, spaceBaseUrl: String): WebhookEventResult {
+private fun getTriggeredBuildCause(trigger: SpaceWebhookTrigger, event: WebhookEvent, spaceConnection: SpaceConnection): WebhookEventResult {
     return when (trigger.triggerType) {
         SpaceWebhookTriggerType.Branches -> {
             if (event !is SRepoHeadsWebhookEvent) {
@@ -103,7 +113,17 @@ private fun getTriggeredBuildCause(trigger: SpaceWebhookTrigger, event: WebhookE
                 }
             }
 
-            WebhookEventResult.RunBuild(SpaceWebhookTriggerCause(trigger.triggerType))
+            // TODO - figure out branches that triggered the build and trigger a separate build for each of them,
+            // putting branch name and latest commit id to environment variables
+            WebhookEventResult.RunBuild(
+                SpaceWebhookTriggerCause(
+                    spaceConnectionId = spaceConnection.id,
+                    spaceUrl = spaceConnection.baseUrl,
+                    projectKey = event.projectKey.key,
+                    repositoryName = event.repository,
+                    triggerType = trigger.triggerType
+                )
+            )
         }
 
         SpaceWebhookTriggerType.MergeRequests -> {
@@ -179,13 +199,18 @@ private fun getTriggeredBuildCause(trigger: SpaceWebhookTrigger, event: WebhookE
 
             WebhookEventResult.RunBuild(
                 SpaceWebhookTriggerCause(
-                    trigger.triggerType,
+                    spaceConnectionId = spaceConnection.id,
+                    spaceUrl = spaceConnection.baseUrl,
+                    projectKey = review.project.key,
+                    repositoryName = review.branchPairs.firstOrNull()?.repository.orEmpty(),
+                    triggerType = trigger.triggerType,
                     mergeRequest = MergeRequest(
+                        projectKey = review.project.key,
                         id = review.id,
                         number = review.number,
                         title = review.title,
                         sourceBranch = review.branchPairs.firstOrNull()?.sourceBranchInfo?.head,
-                        url = "${spaceBaseUrl}/p/${review.project.key}/reviews/${review.number}"
+                        url = "${spaceConnection.baseUrl}/p/${review.project.key}/reviews/${review.number}"
                     )
                 )
             )
