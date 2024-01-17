@@ -5,6 +5,18 @@
         <f:textbox field="id" />
     </f:invisibleEntry>
 
+    <f:entry title="Space connection" field="spaceConnectionId">
+        <f:select clazz="jb-space-autofill jb-space-cache" />
+    </f:entry>
+
+    <f:entry title="Project" field="projectKey">
+        <f:select clazz="jb-space-autofill jb-space-cache" />
+    </f:entry>
+
+    <f:entry title="Repository" field="repositoryName">
+        <f:select clazz="jb-space-autofill jb-space-cache" />
+    </f:entry>
+
     <f:radioBlock name="triggerType" value="Branches" title="Trigger on commits" checked="${instance.triggerType == 'Branches' }" inline="true">
         <f:entry title="Branches">
             <f:textbox name="branchSpec" field="branchSpec" placeholder="*" autoCompleteDelimChar=","/>
@@ -22,22 +34,6 @@
             <f:textbox name="mergeRequestTitleRegex" field="mergeRequestTitleRegex" placeholder="Leave blank for none" />
         </f:entry>
     </f:radioBlock>
-
-    <f:optionalBlock title="Custom Space connection" field="customSpaceRepository" name="customSpaceRepository" checked="${instance.customSpaceRepository != null}">
-        <j:set var="it" value="${instance.customSpaceRepository}"/>
-
-        <f:entry title="Connection" field="spaceConnectionId">
-            <f:select value="${it.spaceConnectionId}" clazz="jb-space-autofill jb-space-cache" />
-        </f:entry>
-
-        <f:entry title="Project" field="projectKey">
-            <f:select value="${it.projectKey}" clazz="jb-space-autofill jb-space-cache" />
-        </f:entry>
-
-        <f:entry title="Repository" field="repositoryName">
-            <f:select value="${it.repositoryName}" clazz="jb-space-autofill jb-space-cache" />
-        </f:entry>
-    </f:optionalBlock>
 
     <script type="text/javascript" src="${rootURL}/plugin/jetbrains-space/js/select-autofill.js" />
 </j:jelly>

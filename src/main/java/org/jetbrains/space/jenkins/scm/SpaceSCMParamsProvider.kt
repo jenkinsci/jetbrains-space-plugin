@@ -27,10 +27,20 @@ class SpaceSCMParamsProvider {
     fun doFillSpaceConnectionNameItems() =
         ListBoxModel(spacePluginConfiguration.connections.map { ListBoxModel.Option(it.name) })
 
-    fun doFillProjectKeyItems(spaceConnectionId: String) =
-        doFillProjectKeyItems(spaceConnectionId, null)
+    fun doFillProjectKeyItems(spaceConnectionId: String?) =
+        doFillProjectKeyItems(spaceConnectionId = spaceConnectionId, spaceConnectionName = null)
 
     fun doFillProjectKeyItems(spaceConnectionId: String?, spaceConnectionName: String?): HttpResponse {
+        if (spaceConnectionId == null && spaceConnectionName == null) {
+            val firstConnectionId = doFillSpaceConnectionIdItems().firstOrNull()?.value
+                ?: return HttpResponses.errorWithoutStack(HttpURLConnection.HTTP_BAD_REQUEST, "No Space connections configured for Jenkins")
+            return doFillProjectKeyItems(firstConnectionId)
+        }
+
+        if (spaceConnectionId.isNullOrBlank() && spaceConnectionName.isNullOrBlank()) {
+            return HttpResponses.errorWithoutStack(HttpURLConnection.HTTP_BAD_REQUEST, "Space connection is not selected")
+        }
+
         val spaceApiClient = spacePluginConfiguration.getConnectionByIdOrName(spaceConnectionId, spaceConnectionName)?.getApiClient()
             ?: return HttpResponses.errorWithoutStack(
                 HttpURLConnection.HTTP_BAD_REQUEST,
@@ -59,16 +69,32 @@ class SpaceSCMParamsProvider {
         }
     }
 
-    fun doFillRepositoryNameItems(spaceConnectionId: String, projectKey: String): HttpResponse {
-        val spaceApiClient = spacePluginConfiguration.getConnectionById(spaceConnectionId)?.getApiClient()
-            ?: return HttpResponses.errorWithoutStack(
-                HttpURLConnection.HTTP_BAD_REQUEST,
-                "Space connection is not selected"
-            )
+    fun doFillRepositoryNameItems(spaceConnectionId: String?, projectKey: String?): HttpResponse {
+        return doFillRepositoryNameItems(
+            spaceConnectionId = spaceConnectionId,
+            spaceConnectionName = null,
+            projectKey = projectKey
+        )
+    }
 
-        if (projectKey.isBlank()) {
+    fun doFillRepositoryNameItems(spaceConnectionId: String?, spaceConnectionName: String?, projectKey: String?): HttpResponse {
+        if (spaceConnectionId == null && spaceConnectionName == null) {
+            val firstConnectionId = doFillSpaceConnectionIdItems().firstOrNull()?.value
+                ?: return HttpResponses.errorWithoutStack(HttpURLConnection.HTTP_BAD_REQUEST, "No Space connections configured for Jenkins")
+            val firstProjectKey = (doFillProjectKeyItems(firstConnectionId) as? ListBoxModel)?.firstOrNull()?.value
+            return doFillRepositoryNameItems(firstConnectionId, firstProjectKey)
+        }
+
+        if (spaceConnectionId.isNullOrBlank() && spaceConnectionName.isNullOrBlank()) {
+            return HttpResponses.errorWithoutStack(HttpURLConnection.HTTP_BAD_REQUEST, "Space connection is not selected")
+        }
+
+        if (projectKey.isNullOrBlank()) {
             return HttpResponses.errorWithoutStack(HttpURLConnection.HTTP_BAD_REQUEST, "Space project is not selected")
         }
+
+        val spaceApiClient = spacePluginConfiguration.getConnectionByIdOrName(spaceConnectionId, spaceConnectionName)?.getApiClient()
+            ?: return HttpResponses.errorWithoutStack(HttpURLConnection.HTTP_BAD_REQUEST, "Space connection cannot be found")
 
         try {
             spaceApiClient.use {

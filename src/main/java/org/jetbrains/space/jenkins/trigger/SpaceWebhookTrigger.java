@@ -24,15 +24,21 @@ import static jenkins.triggers.SCMTriggerItem.SCMTriggerItems.asSCMTriggerItem;
 public class SpaceWebhookTrigger extends Trigger<Job<?,?>> {
 
     @DataBoundConstructor
-    public SpaceWebhookTrigger(String id) {
+    public SpaceWebhookTrigger(String id, String spaceConnectionId, String projectKey, String repositoryName) {
         this.id = (id != null && !id.isBlank()) ? id : UUID.randomUUID().toString();
+        this.spaceConnectionId = spaceConnectionId;
+        this.projectKey = projectKey;
+        this.repositoryName = repositoryName;
         this.triggerType = SpaceWebhookTriggerType.Branches;
     }
 
-    private String id;
-    private CustomSpaceRepository customSpaceRepository = null;
+    private final String id;
+    private final String spaceConnectionId;
+    private final String projectKey;
+    private final String repositoryName;
+
     private SpaceWebhookTriggerType triggerType;
-    private List<String> spaceWebhookIds;
+    private String spaceWebhookId;
     private String branchSpec = "";
 
     private boolean mergeRequestApprovalsRequired;
@@ -43,25 +49,28 @@ public class SpaceWebhookTrigger extends Trigger<Job<?,?>> {
         return id;
     }
 
-    public List<String> getSpaceWebhookIds() {
-        return this.spaceWebhookIds;
+    public String getSpaceWebhookId() {
+        return this.spaceWebhookId;
     }
 
-    public void setSpaceWebhookIds(List<String> spaceWebhookIds) {
-        this.spaceWebhookIds = spaceWebhookIds;
+    public void setSpaceWebhookId(String spaceWebhookId) {
+        this.spaceWebhookId = spaceWebhookId;
     }
 
     public Job<?, ?> getJob() {
         return this.job;
     }
 
-    public CustomSpaceRepository getCustomSpaceRepository() {
-        return customSpaceRepository;
+    public String getSpaceConnectionId() {
+        return spaceConnectionId;
     }
 
-    @DataBoundSetter
-    public void setCustomSpaceRepository(CustomSpaceRepository customSpaceRepository) {
-        this.customSpaceRepository = customSpaceRepository;
+    public String getProjectKey() {
+        return projectKey;
+    }
+
+    public String getRepositoryName() {
+        return repositoryName;
     }
 
     @NotNull
@@ -113,14 +122,14 @@ public class SpaceWebhookTrigger extends Trigger<Job<?,?>> {
     @Override
     public void start(Job<?, ?> project, boolean newInstance) {
         super.start(project, newInstance);
-        if (id == null || (!newInstance && spaceWebhookIds != null && !spaceWebhookIds.isEmpty()))
+        if (id == null || (!newInstance && spaceWebhookId != null))
             return;
 
-        ensureSpaceWebhooks();
+        ensureSpaceWebhook();
     }
 
-    public void ensureSpaceWebhooks() {
-        this.spaceWebhookIds = SpaceWebhookTriggerKt.ensureAndGetSpaceWebhooks(this);
+    public void ensureSpaceWebhook() {
+        this.spaceWebhookId = SpaceWebhookTriggerKt.ensureAndGetSpaceWebhookId(this);
     }
 
     @Extension

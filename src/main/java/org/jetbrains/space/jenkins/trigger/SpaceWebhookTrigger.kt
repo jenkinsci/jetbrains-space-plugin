@@ -1,12 +1,10 @@
 package org.jetbrains.space.jenkins.trigger
 
-import hudson.plugins.git.GitSCM
 import jenkins.model.*
 import jenkins.triggers.SCMTriggerItem
 import jenkins.triggers.SCMTriggerItem.SCMTriggerItems
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.space.jenkins.config.*
-import org.jetbrains.space.jenkins.scm.SpaceSCM
 import org.kohsuke.stapler.*
 import space.jetbrains.api.runtime.Option
 import space.jetbrains.api.runtime.SpaceClient
@@ -17,90 +15,44 @@ import space.jetbrains.api.runtime.types.partials.WebhookEventPartial
 import java.util.logging.Level
 import java.util.logging.Logger
 
-class CustomSpaceRepository @DataBoundConstructor constructor(
-    var spaceConnectionId: String,
-    var projectKey: String,
-    var repositoryName: String
-)
-
-fun SpaceWebhookTrigger.ensureAndGetSpaceWebhooks(): List<String>? {
+fun SpaceWebhookTrigger.ensureAndGetSpaceWebhookId(): String? {
     if (id == null)
         return null
 
-    val triggerItem: SCMTriggerItem? = SCMTriggerItems.asSCMTriggerItem(job)
-    val allRepositories = when {
-        customSpaceRepository != null -> {
-            val repo = customSpaceRepository!!
-            val spaceConnection = (descriptor as SpaceWebhookTrigger.DescriptorImpl).spacePluginConfiguration.getConnectionById(repo.spaceConnectionId)
-            if (spaceConnection == null) {
-                LOGGER.warning("Space connection not found by id = ${repo.spaceConnectionId}")
-                return emptyList()
-            }
-            listOf(SpaceRepository(spaceConnection, repo.projectKey, repo.repositoryName))
-        }
-
-        // triggerItem.scMs contains SCMs that have been actually used during the last build run
-        // if checkout step has been reconfigured to another repository, webhook settings in Space won't get updated accordingly
-        // and thus webhook won't work until at least a single build is triggered manually
-        // (at that point in time RunListenerImpl will take care of updating the webhook)
-        triggerItem != null -> {
-            val spacePluginConfiguration = (descriptor as SpaceWebhookTrigger.DescriptorImpl).spacePluginConfiguration
-            triggerItem.scMs.mapNotNull { scm ->
-                when (scm) {
-                    is SpaceSCM ->
-                        spacePluginConfiguration.getConnectionByIdOrName(scm.spaceConnectionId, scm.spaceConnection)
-                            ?.let { SpaceRepository(it, scm.projectKey, scm.repositoryName) }
-                            ?: run {
-                                LOGGER.warning("Space connection not found by id = ${scm.spaceConnectionId}")
-                                null
-                            }
-
-                    is GitSCM ->
-                        scm.userRemoteConfigs
-                            .mapNotNull { it.url }
-                            .firstNotNullOfOrNull { spacePluginConfiguration.getSpaceRepositoryByGitCloneUrl(it) }
-
-                    else ->
-                        null
-                }
-            }
-        }
-
-        else ->
-            emptyList()
-    }
-    if (allRepositories.isEmpty()) {
-        LOGGER.warning("Space trigger has no effect - it does not define Space connection and build does not use Space SCM")
-        return emptyList()
+    val spaceConnection =
+        (descriptor as SpaceWebhookTrigger.DescriptorImpl).spacePluginConfiguration.getConnectionById(spaceConnectionId)
+    if (spaceConnection == null) {
+        LOGGER.warning("Space connection not found by id = $spaceConnectionId")
+        return null
     }
 
-    return allRepositories.groupBy { it.spaceConnection }.flatMap { (spaceConnection, repositories) ->
-        try {
-            runBlocking {
-                spaceConnection.getApiClient().use { spaceApiClient ->
-                    val existingWebhooks = spaceApiClient.getRegisteredWebhooks()
-                    val webhookNames = repositories.map { getSpaceWebhookName(it.projectKey, it.repositoryName, id) }.toSet()
-                    existingWebhooks
-                        .filter { !webhookNames.contains(it.webhook.name) }
-                        .forEach { spaceApiClient.applications.webhooks.deleteWebhook(ApplicationIdentifier.Me, it.webhook.id) }
-                    repositories.map { repo ->
-                        val subscription =
-                            createSubscription(repo.projectKey, repo.repositoryName, spaceApiClient)
-                        val spaceWebhookId = spaceApiClient.ensureTriggerWebhook(
-                            projectKey = repo.projectKey,
-                            repositoryName = repo.repositoryName,
-                            triggerId = id,
-                            subscription = subscription,
-                            existingWebhooks = existingWebhooks
+    return try {
+        runBlocking {
+            spaceConnection.getApiClient().use { spaceApiClient ->
+                val existingWebhooks =
+                    spaceApiClient.getRegisteredWebhooks().filter { it.webhook.name.startsWith("GEN|") }
+                val webhookName = getSpaceWebhookName(projectKey, repositoryName, id)
+                existingWebhooks
+                    .filter { it.webhook.name != webhookName }
+                    .forEach {
+                        spaceApiClient.applications.webhooks.deleteWebhook(
+                            ApplicationIdentifier.Me,
+                            it.webhook.id
                         )
-                        spaceWebhookId
                     }
-                }
+                val subscription = createSubscription(projectKey, repositoryName, spaceApiClient)
+                spaceApiClient.ensureTriggerWebhook(
+                    projectKey = projectKey,
+                    repositoryName = repositoryName,
+                    triggerId = id,
+                    subscription = subscription,
+                    existingWebhooks = existingWebhooks
+                )
             }
-        } catch (ex: Throwable) {
-            LOGGER.log(Level.WARNING, "Error while setting up webhook in Space", ex)
-            emptyList()
         }
+    } catch (ex: Throwable) {
+        LOGGER.log(Level.WARNING, "Error while setting up webhook in Space", ex)
+        null
     }
 }
 
@@ -137,11 +89,11 @@ private suspend fun SpaceWebhookTrigger.createSubscription(projectKey: String, r
 }
 
 fun getSpaceWebhookName(projectKey: String, repositoryName: String, triggerId: String): String {
-    return "$triggerId|$projectKey|$repositoryName"
+    return "GEN|$triggerId|$projectKey|$repositoryName"
 }
 
 fun getTriggerId(webhook: WebhookRecord): String? {
-    return webhook.name.split('|').takeIf { it.size == 3 }?.let { it[0] }
+    return webhook.name.split('|').takeIf { it.size == 4 && it[0] == "GEN" }?.let { it[1] }
 }
 
 private suspend fun SpaceClient.ensureTriggerWebhook(

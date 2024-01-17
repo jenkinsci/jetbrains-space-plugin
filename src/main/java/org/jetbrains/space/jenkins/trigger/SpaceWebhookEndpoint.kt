@@ -23,6 +23,7 @@ import java.nio.charset.StandardCharsets
 import java.util.logging.Logger
 import javax.servlet.http.HttpServletResponse
 
+@Suppress("EXTENSION_SHADOWED_BY_MEMBER")
 @OptIn(ExperimentalSpaceSdkApi::class)
 fun SpaceWebhookEndpoint.doTrigger(request: StaplerRequest, response: StaplerResponse) {
     val contentType = request.contentType
@@ -49,7 +50,7 @@ fun SpaceWebhookEndpoint.doTrigger(request: StaplerRequest, response: StaplerRes
                         ?.let { allJobs.findByTriggerId(it) }
                         .also {
                             if (it != null) {
-                                it.second.ensureSpaceWebhooks()
+                                it.second.ensureSpaceWebhook()
                             } else {
                                 LOGGER.warning("Trigger found for webhook id = ${payload.webhookId} found by fallback to webhook name")
                             }
@@ -82,7 +83,7 @@ fun SpaceWebhookEndpoint.doTrigger(request: StaplerRequest, response: StaplerRes
                 }
 
                 is WebhookEventResult.UnexpectedEvent -> {
-                    trigger.ensureSpaceWebhooks()
+                    trigger.ensureSpaceWebhook()
                     SpaceHttpResponse.RespondWithCode(HttpStatusCode.BadRequest)
                 }
 
@@ -106,11 +107,9 @@ private fun getTriggeredBuildCause(trigger: SpaceWebhookTrigger, event: WebhookE
                 return WebhookEventResult.UnexpectedEvent
             }
 
-            trigger.customSpaceRepository?.let { repo ->
-                if (event.projectKey.key != repo.projectKey || event.repository != repo.repositoryName) {
-                    LOGGER.warning("Event project and repository do not match those configured for the build trigger ${trigger.id}")
-                    return WebhookEventResult.UnexpectedEvent
-                }
+            if (event.projectKey.key != trigger.projectKey || event.repository != trigger.repositoryName) {
+                LOGGER.warning("Event project and repository do not match those configured for the build trigger ${trigger.id}")
+                return WebhookEventResult.UnexpectedEvent
             }
 
             // TODO - figure out branches that triggered the build and trigger a separate build for each of them,
@@ -156,11 +155,9 @@ private fun getTriggeredBuildCause(trigger: SpaceWebhookTrigger, event: WebhookE
                 return WebhookEventResult.IgnoredEvent
             }
 
-            trigger.customSpaceRepository?.let { repo ->
-                if (review.project.key != repo.projectKey || review.branchPairs.firstOrNull()?.repository != repo.repositoryName) {
-                    LOGGER.warning("Event project and repository do not match those configured for trigger ${trigger.id}")
-                    return WebhookEventResult.UnexpectedEvent
-                }
+            if (review.project.key != trigger.projectKey || review.branchPairs.firstOrNull()?.repository != trigger.repositoryName) {
+                LOGGER.warning("Event project and repository do not match those configured for trigger ${trigger.id}")
+                return WebhookEventResult.UnexpectedEvent
             }
 
             if (!eventMatchesTrigger) {
@@ -251,7 +248,7 @@ private fun List<TriggeredItem>.findBySpaceWebhookId(webhookId: String) =
     firstNotNullOfOrNull { job ->
         job.triggers.values
             .filterIsInstance<SpaceWebhookTrigger>()
-            .firstOrNull { it.spaceWebhookIds?.contains(webhookId) ?: false }
+            .firstOrNull { it.spaceWebhookId == webhookId }
             ?.let { job to it }
     }
 

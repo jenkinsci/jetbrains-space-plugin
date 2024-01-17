@@ -1,25 +1,37 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
-    <f:entry title="JetBrains Space connection">
-        <f:select field="spaceConnectionId" clazz="jb-space-autofill jb-space-cache" />
-    </f:entry>
-
-    <f:entry title="Project">
-        <f:select field="projectKey" clazz="jb-space-autofill jb-space-cache" />
-    </f:entry>
-
-    <f:entry title="Repository">
-        <f:select field="repositoryName" clazz="jb-space-autofill jb-space-cache" />
-    </f:entry>
-
-    <f:entry title="Branches to build">
-        <f:repeatableProperty field="branches" add="Add branch" minimum="1" />
-    </f:entry>
-
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:st="jelly:stapler" xmlns:d="jelly:define" >
     <f:entry title="Post build status to Space">
         <f:checkbox field="postBuildStatusToSpace" default="true" />
     </f:entry>
+
+    <f:description>
+        If not specified, Space repository to checkout code from will be taken from the build trigger settings.
+    </f:description>
+
+    <f:optionalBlock title="Specify Space repository" field="customSpaceConnection" checked="${instance.customSpaceConnection != null}">
+        <j:set var="it" value="${instance.customSpaceConnection}"/>
+
+        <f:entry title="Connection" field="spaceConnection">
+            <f:select value="${it.spaceConnection}" clazz="jb-space-autofill jb-space-cache" />
+        </f:entry>
+
+        <f:entry title="Project" field="projectKey">
+            <f:select value="${it.projectKey}" clazz="jb-space-autofill jb-space-cache" />
+        </f:entry>
+
+        <f:entry title="Repository" field="repository">
+            <f:select value="${it.repository}" clazz="jb-space-autofill jb-space-cache"/>
+        </f:entry>
+
+        <f:entry title="Branches to build" field="branches">
+            <f:repeatable var="branch" items="${it.branches}" name="branches" add="Add branch" minimum="1">
+                <div style="width:100%">
+                    <st:include page="config.jelly" class="hudson.plugins.git.BranchSpec" />
+                </div>
+            </f:repeatable>
+        </f:entry>
+    </f:optionalBlock>
 
     <j:if test="${descriptor.showGitToolOptions}">
         <f:entry title="Git executable" field="gitTool">

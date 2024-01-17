@@ -1,30 +1,28 @@
 package org.jetbrains.space.jenkins.steps;
 
+import edu.umd.cs.findbugs.annotations.NonNull;
+import edu.umd.cs.findbugs.annotations.Nullable;
 import hudson.Extension;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
+import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.space.jenkins.config.SpaceConnection;
 import org.jetbrains.space.jenkins.config.SpacePluginConfiguration;
-import org.jetbrains.space.jenkins.config.UtilsKt;
-import org.jetbrains.space.jenkins.listeners.SpaceGitScmCheckoutAction;
 import org.jetbrains.space.jenkins.scm.SpaceSCMParamsProvider;
-import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.DataBoundSetter;
-import org.kohsuke.stapler.HttpResponse;
-import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.*;
 import org.kohsuke.stapler.verb.POST;
 import space.jetbrains.api.runtime.types.CommitExecutionStatus;
 
+import javax.annotation.CheckForNull;
 import javax.inject.Inject;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class ReportBuildStatusStep extends Step {
@@ -33,7 +31,7 @@ public class ReportBuildStatusStep extends Step {
     private String spaceConnection;
     private String spaceConnectionId;
     private String projectKey;
-    private String repositoryName;
+    private String repository;
     private String revision;
     private String branch;
 
@@ -56,6 +54,7 @@ public class ReportBuildStatusStep extends Step {
         this.spaceConnection = blankToNull(spaceConnection);
     }
 
+    @CheckForNull
     public String getSpaceConnectionId() {
         return spaceConnectionId;
     }
@@ -65,6 +64,7 @@ public class ReportBuildStatusStep extends Step {
         this.spaceConnectionId = blankToNull(spaceConnectionId);
     }
 
+    @CheckForNull
     public String getProjectKey() {
         return projectKey;
     }
@@ -74,15 +74,17 @@ public class ReportBuildStatusStep extends Step {
         this.projectKey = blankToNull(projectKey);
     }
 
-    public String getRepositoryName() {
-        return repositoryName;
+    @CheckForNull
+    public String getRepository() {
+        return repository;
     }
 
     @DataBoundSetter
-    public void setRepositoryName(String repositoryName) {
-        this.repositoryName = blankToNull(repositoryName);
+    public void setRepository(String repository) {
+        this.repository = blankToNull(repository);
     }
 
+    @CheckForNull
     public String getBranch() {
         return branch;
     }
@@ -92,6 +94,7 @@ public class ReportBuildStatusStep extends Step {
         this.branch = blankToNull(branch);
     }
 
+    @CheckForNull
     public String getRevision() {
         return revision;
     }
@@ -112,48 +115,7 @@ public class ReportBuildStatusStep extends Step {
 
     @Override
     public StepExecution start(StepContext context) throws Exception {
-        Run<?, ?> run = context.get(Run.class);
-        if (run == null)
-            return new FailureStepExecution("StepContext does not contain the Run instance", context);
-
-        DescriptorImpl descriptor = (DescriptorImpl) getDescriptor();
-        List<PostBuildStatusAction> actions = new ArrayList<>();
-        if (spaceConnectionId != null || spaceConnection != null) {
-            if (projectKey == null || repositoryName == null || branch == null || revision == null)
-                return new FailureStepExecution("Project, repositoryName, branch and revision parameters should be explicitly specified when Space connection is provided", context);
-
-            SpaceConnection connection = UtilsKt.getConnectionByIdOrName(descriptor.spacePluginConfiguration, spaceConnectionId, spaceConnection);
-            if (connection == null)
-                return new FailureStepExecution("No Space connection found by specified id or name", context);
-
-            actions.add(new PostBuildStatusAction(connection.getId(), projectKey, repositoryName, branch, revision));
-        } else {
-            if (projectKey != null || repositoryName != null || branch != null || revision != null)
-                return new FailureStepExecution("Space connection should be also explicitly specified when project, repositoryName, branch or revision parameters are provided", context);
-
-            for (SpaceGitScmCheckoutAction a : run.getActions(SpaceGitScmCheckoutAction.class)) {
-                actions.add(new PostBuildStatusAction(a.getSpaceConnectionId(), a.getProjectKey(), a.getRepositoryName(), a.getBranch(), a.getRevision()));
-            }
-        }
-
-        if (actions.isEmpty()) {
-            return new FailureStepExecution("Space connection is specified neither in the workflow step nor as the workflow source control (SCM)", context);
-        }
-
-        for (PostBuildStatusAction a : actions) {
-            run.addAction(a);
-        }
-
-        return new ReportBuildStatusStepExecution(
-                actions,
-                buildStatus,
-                run.getAbsoluteUrl(),
-                run.getParent().getFullName(),
-                Integer.toString(run.getNumber()),
-                run.getStartTimeInMillis(),
-                run.getDescription(),
-                context
-        );
+        return ReportBuildStatusStepExecution.Companion.start(this, context, ((DescriptorImpl) getDescriptor()).spacePluginConfiguration);
     }
 
     @Extension
@@ -166,61 +128,8 @@ public class ReportBuildStatusStep extends Step {
         private SpaceSCMParamsProvider scmParamsProvider;
 
         @Override
-        public @NotNull String getDisplayName() {
+        public @NonNull String getDisplayName() {
             return "Post build status to JetBrains Space";
-        }
-
-        @POST
-        public ListBoxModel doFillSpaceConnectionIdItems() {
-            ListBoxModel result = scmParamsProvider.doFillSpaceConnectionIdItems();
-            result.add(0, new ListBoxModel.Option("(from SCM source)", ""));
-            return result;
-        }
-
-        @POST
-        public HttpResponse doFillProjectKeyItems(@QueryParameter String spaceConnectionId) {
-            if (spaceConnectionId.isBlank())
-                return new ListBoxModel();
-            return scmParamsProvider.doFillProjectKeyItems(spaceConnectionId);
-        }
-
-        @POST
-        public HttpResponse doFillRepositoryNameItems(@QueryParameter String spaceConnectionId, @QueryParameter String projectKey) {
-            if (spaceConnectionId.isBlank())
-                return new ListBoxModel();
-            return scmParamsProvider.doFillRepositoryNameItems(spaceConnectionId, projectKey);
-        }
-
-        /**
-         * Give user a hint that repository and revision should be explicitly passed into the step when Space connection is not inherited from SCM checkout.
-         * Use build status field validation for this because it is always visible on screen and not hidden under the "Advanced" section.
-         */
-        @POST
-        public FormValidation doCheckBuildStatus(
-                @QueryParameter String spaceConnectionId,
-                @QueryParameter String projectKey,
-                @QueryParameter String repositoryName,
-                @QueryParameter String revision,
-                @QueryParameter String branch
-        ) {
-            if (spaceConnectionId != null && !spaceConnectionId.isBlank()) {
-                if (projectKey == null || projectKey.isBlank())
-                    return FormValidation.error("Project should be specified when custom Space connection is selected");
-                if (repositoryName == null || repositoryName.isBlank())
-                    return FormValidation.error("Repository should be specified when custom Space connection is selected");
-                if (revision == null || revision.isBlank())
-                    return FormValidation.error("Revision parameter should be specified when custom Space connection is selected");
-                if (branch == null || branch.isBlank())
-                    return FormValidation.error("Branch parameter should be specified when custom Space connection is selected");
-            }
-            return FormValidation.ok();
-        }
-
-        @POST
-        public ListBoxModel doFillBuildStatusItems() {
-            return CommitExecutionStatus.getEntries().stream()
-                    .map(c -> new ListBoxModel.Option(c.name()))
-                    .collect(Collectors.toCollection(ListBoxModel::new));
         }
 
         @Override
@@ -232,6 +141,70 @@ public class ReportBuildStatusStep extends Step {
         public String getFunctionName() {
             return "postBuildStatusToSpace";
         }
-    }
 
+        @POST
+        public ListBoxModel doFillSpaceConnectionItems() {
+            return scmParamsProvider.doFillSpaceConnectionNameItems();
+        }
+
+        @POST
+        public HttpResponse doFillProjectKeyItems(@QueryParameter String spaceConnection) {
+            if (spaceConnection.isBlank())
+                return new ListBoxModel();
+            return scmParamsProvider.doFillProjectKeyItems(null, spaceConnection);
+        }
+
+        @POST
+        public HttpResponse doFillRepositoryNameItems(@QueryParameter String spaceConnection, @QueryParameter String projectKey) {
+            if (spaceConnection.isBlank())
+                return new ListBoxModel();
+            return scmParamsProvider.doFillRepositoryNameItems(null, spaceConnection, projectKey);
+        }
+
+        @POST
+        public ListBoxModel doFillBuildStatusItems() {
+            return CommitExecutionStatus.getEntries().stream()
+                    .map(c -> new ListBoxModel.Option(c.name()))
+                    .collect(Collectors.toCollection(ListBoxModel::new));
+        }
+
+        @POST
+        public FormValidation doCheckProjectKey(@QueryParameter String spaceConnection, @QueryParameter String projectKey) {
+            if (!spaceConnection.isBlank() && projectKey.isBlank())
+                return FormValidation.error("Choose project in Space");
+
+            return FormValidation.ok();
+        }
+
+        @POST
+        public FormValidation doCheckRepositoryName(@QueryParameter String spaceConnection, @QueryParameter String projectKey, @QueryParameter String repositoryName) {
+            if (!spaceConnection.isBlank() && !projectKey.isBlank() && repositoryName.isBlank())
+                return FormValidation.error("Choose repository in Space");
+
+            return FormValidation.ok();
+        }
+
+        @POST
+        public FormValidation doCheckRevision(@QueryParameter String revision, @QueryParameter String branch) {
+            if (revision.isBlank() && !branch.isBlank())
+                return FormValidation.error("Specify git commit");
+
+            return FormValidation.ok();
+        }
+
+        @POST
+        public FormValidation doCheckBranch(@QueryParameter String revision, @QueryParameter String branch) {
+            if (branch.isBlank() && !revision.isBlank())
+                return FormValidation.error("Specify git branch");
+
+            return FormValidation.ok();
+        }
+
+        @Override
+        public ReportBuildStatusStep newInstance(@Nullable StaplerRequest req, @NonNull JSONObject formData) throws FormException {
+            BuildStepUtilsKt.flattenNestedObject(formData, "customSpaceConnection");
+            BuildStepUtilsKt.flattenNestedObject(formData, "customRevision");
+            return (ReportBuildStatusStep)super.newInstance(req, formData);
+        }
+    }
 }

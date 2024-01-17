@@ -3,12 +3,15 @@ package org.jetbrains.space.jenkins.listeners
 import hudson.model.Result
 import hudson.model.Run
 import hudson.model.TaskListener
+import hudson.plugins.git.BranchSpec
 import hudson.plugins.git.GitSCM
 import hudson.scm.SCM
 import jenkins.triggers.TriggeredItem
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.space.jenkins.config.*
+import org.jetbrains.space.jenkins.scm.SpaceGitCheckoutParams
 import org.jetbrains.space.jenkins.scm.SpaceSCM
+import org.jetbrains.space.jenkins.scm.getSpaceGitCheckoutParams
 import org.jetbrains.space.jenkins.steps.PostBuildStatusAction
 import org.jetbrains.space.jenkins.trigger.SpaceWebhookTrigger
 import space.jetbrains.api.runtime.SpaceClient
@@ -19,7 +22,7 @@ import java.util.logging.Level
 import java.util.logging.Logger
 
 fun onScmCheckout(build: Run<*, *>, scm: SCM, listener: TaskListener, spacePluginConfiguration: SpacePluginConfiguration) {
-    LOGGER.info("SpaceSCMListener.onCheckout called for ${scm.type}")
+    LOGGER.info("SpaceSCMListener.onCheckout called for ${scm.type} on ${build.displayName}")
 
     val underlyingGitScm = getUnderlyingGitSCM(scm)
     if (underlyingGitScm == null) {
@@ -29,29 +32,27 @@ fun onScmCheckout(build: Run<*, *>, scm: SCM, listener: TaskListener, spacePlugi
     val gitScmEnv = mutableMapOf<String, String>()
     underlyingGitScm.buildEnvironment(build, gitScmEnv)
 
-    val spaceRepository = when {
+    val (space, _) = when {
         scm is SpaceSCM ->
-            spacePluginConfiguration
-                .getConnectionByIdOrName(scm.spaceConnectionId, scm.spaceConnection)
-                ?.let { SpaceRepository(it, scm.projectKey, scm.repositoryName) }
+            getSpaceGitCheckoutParams(scm, build.parent, spacePluginConfiguration)
 
         gitScmEnv[GitSCM.GIT_URL] != null && gitScmEnv[GitSCM.GIT_COMMIT] != null ->
-            spacePluginConfiguration.getSpaceRepositoryByGitCloneUrl(gitScmEnv[GitSCM.GIT_URL]!!)
+            spacePluginConfiguration.getSpaceRepositoryByGitCloneUrl(gitScmEnv[GitSCM.GIT_URL]!!)?.let {
+                SpaceGitCheckoutParams(it.spaceConnection, it.projectKey, it.repositoryName) to emptyList()
+            }
 
         else ->
             null
-    }
-    if (spaceRepository == null) {
+    } ?: run  {
         LOGGER.info("SpaceSCMListener.onCheckout - no Space git repository found")
         return
     }
 
-    val spaceConnection = spaceRepository.spaceConnection
     val revisionAction = SpaceGitScmCheckoutAction(
-        spaceConnectionId = spaceConnection.id,
-        spaceUrl = spaceConnection.baseUrl,
-        projectKey = spaceRepository.projectKey,
-        repositoryName = spaceRepository.repositoryName,
+        spaceConnectionId = space.connection.id,
+        spaceUrl = space.connection.baseUrl,
+        projectKey = space.projectKey,
+        repositoryName = space.repositoryName,
         branch = gitScmEnv[GitSCM.GIT_BRANCH].orEmpty(),
         revision = gitScmEnv[GitSCM.GIT_COMMIT]!!,
         postBuildStatusToSpace = (scm as? SpaceSCM)?.postBuildStatusToSpace ?: false,
@@ -62,7 +63,7 @@ fun onScmCheckout(build: Run<*, *>, scm: SCM, listener: TaskListener, spacePlugi
     if (revisionAction.postBuildStatusToSpace) {
         try {
             runBlocking {
-                spaceConnection.getApiClient().postBuildStatus(revisionAction, build)
+                space.connection.getApiClient().postBuildStatus(revisionAction, build)
             }
         } catch (ex: Throwable) {
             val message = "Failed to post build status to JetBrains Space, details: $ex"
@@ -102,7 +103,7 @@ fun onBuildCompleted(build: Run<*, *>, listener: TaskListener, spacePluginConfig
     try {
         (build.parent as? TriggeredItem)?.triggers?.values
             ?.filterIsInstance<SpaceWebhookTrigger>()
-            ?.forEach { it.ensureSpaceWebhooks() }
+            ?.forEach { it.ensureSpaceWebhook() }
     } catch (ex: Throwable) {
         LOGGER.log(Level.WARNING, "Failure while ensuring webhook settings in Space", ex)
     }
