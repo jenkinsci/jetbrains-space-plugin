@@ -31,7 +31,7 @@
 
         <f:description>
             Override Git branch and revision to report build status for.
-            If this block is not filled, git branch and revision will be taken from the git checkout settings.
+            If this block is not filled, git branch and revision that have been checked out from git will be used.
         </f:description>
 
         <f:entry title="Revision" field="revision">

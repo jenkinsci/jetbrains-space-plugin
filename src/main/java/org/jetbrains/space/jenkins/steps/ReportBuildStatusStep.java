@@ -155,7 +155,7 @@ public class ReportBuildStatusStep extends Step {
         }
 
         @POST
-        public HttpResponse doFillRepositoryNameItems(@QueryParameter String spaceConnection, @QueryParameter String projectKey) {
+        public HttpResponse doFillRepositoryItems(@QueryParameter String spaceConnection, @QueryParameter String projectKey) {
             if (spaceConnection.isBlank())
                 return new ListBoxModel();
             return scmParamsProvider.doFillRepositoryNameItems(null, spaceConnection, projectKey);

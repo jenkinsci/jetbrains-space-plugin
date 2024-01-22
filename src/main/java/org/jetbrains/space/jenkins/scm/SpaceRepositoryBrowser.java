@@ -49,6 +49,7 @@ public class SpaceRepositoryBrowser extends GitRepositoryBrowser {
     @Symbol("jbSpace")
     public static class SpaceRepositoryBrowserDescriptor extends Descriptor<RepositoryBrowser<?>> {
         @NonNull
+        @Override
         public String getDisplayName() {
             return "JetBrains Space";
         }
