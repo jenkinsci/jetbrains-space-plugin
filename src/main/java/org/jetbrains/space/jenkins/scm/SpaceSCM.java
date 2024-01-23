@@ -35,6 +35,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
+/**
+ * <p>{@link SCM} implementation for JetBrains Space. Wraps the standard Git SCM implementation, adding some features on top of it.</p>
+ * <p>Allows checking out source code by selecting a configured Space connection and then choosing a project and repository,
+ * provides Space links for commits, files and file diffs on the build changes page
+ * and enables automatic build status posting to Space.</p>
+ * <p>Specifying Space connection parameters is not required, it is taken from the build trigger settings if omitted</p>
+ *
+ * @see <a href="https://github.com/jenkinsci/workflow-scm-step-plugin">Workflow SCM step plugin</a>
+ */
 public class SpaceSCM extends SCM {
 
     private GitSCM gitSCM;
@@ -98,9 +107,8 @@ public class SpaceSCM extends SCM {
             @NotNull Run<?, ?> build,
             @Nullable FilePath workspace,
             @Nullable Launcher launcher,
-            @NotNull TaskListener listener)
-            throws IOException, InterruptedException {
-        LOGGER.info("SpaceSCM.calcRevisionsFromBuild");
+            @NotNull TaskListener listener
+    ) throws IOException, InterruptedException {
         return getAndInitializeGitScmIfNull(build.getParent())
                 .calcRevisionsFromBuild(build, workspace, launcher, listener);
     }
@@ -112,8 +120,8 @@ public class SpaceSCM extends SCM {
             @NotNull FilePath workspace,
             @NotNull TaskListener listener,
             @CheckForNull File changelogFile,
-            @CheckForNull SCMRevisionState baseline)
-            throws IOException, InterruptedException {
+            @CheckForNull SCMRevisionState baseline
+    ) throws IOException, InterruptedException {
         getAndInitializeGitScmIfNull(build.getParent())
                 .checkout(build, launcher, workspace, listener, changelogFile, baseline);
     }
@@ -124,13 +132,15 @@ public class SpaceSCM extends SCM {
             @Nullable Launcher launcher,
             @Nullable FilePath workspace,
             @NotNull TaskListener listener,
-            @NotNull SCMRevisionState baseline)
-            throws IOException, InterruptedException {
-        LOGGER.info("SpaceSCM.compareRemoteRevisionWith");
+            @NotNull SCMRevisionState baseline
+    ) throws IOException, InterruptedException {
         return getAndInitializeGitScmIfNull(project)
                 .compareRemoteRevisionWith(project, launcher, workspace, listener, baseline);
     }
 
+    /**
+     * Builds the environment for a Jenkins build, populating the provided map with relevant environment variables.
+     */
     @Override
     public void buildEnvironment(@NotNull Run<?, ?> build, java.util.@NotNull Map<String, String> env) {
         if (customSpaceConnection != null) {
@@ -163,9 +173,10 @@ public class SpaceSCM extends SCM {
     }
 
     private void initializeGitScm(Job<?, ?> job) {
-        gitSCM = SpaceSCMKt.initializeGitScm(this, job, ((DescriptorImpl)getDescriptor()).spacePluginConfiguration);
+        gitSCM = SpaceSCMKt.initializeGitScm(this, job, ((DescriptorImpl) getDescriptor()).spacePluginConfiguration);
     }
 
+    @SuppressWarnings("unused")
     @Symbol("SpaceGit")
     @Extension
     public static class DescriptorImpl extends SCMDescriptor<SpaceSCM> implements CustomDescribableModel {
@@ -185,7 +196,9 @@ public class SpaceSCM extends SCM {
         }
 
         @Override
-        public boolean isApplicable(Job project) { return true; }
+        public boolean isApplicable(Job project) {
+            return true;
+        }
 
         @Override
         public @NotNull String getDisplayName() {
@@ -194,14 +207,12 @@ public class SpaceSCM extends SCM {
 
         @Override
         public @NonNull Map<String, Object> customInstantiate(@NonNull Map<String, Object> arguments) {
-            Map<String, Object> result = SpaceSCMKt.wrapCustomSpaceConnectionParams(arguments);
-            return result;
+            return PlainSpaceSCM.Companion.wrapCustomSpaceConnectionParams(arguments);
         }
 
         @Override
         public @NonNull UninstantiatedDescribable customUninstantiate(@NonNull UninstantiatedDescribable ud) {
-            UninstantiatedDescribable result = SpaceSCMKt.unwrapCustomSpaceConnectionParams(ud);
-            return result;
+            return PlainSpaceSCM.Companion.unwrapCustomSpaceConnectionParams(ud);
         }
 
         @POST
@@ -237,6 +248,10 @@ public class SpaceSCM extends SCM {
         }
     }
 
+    /**
+     * Contains explicitly specified Space connection, project, repository and branches spec for checking out source code.
+     * Optional for {@link SpaceSCM}, when missing those parameters will be taken from the build trigger configuration.
+     */
     public static class CustomSpaceConnection {
         private final String spaceConnectionId;
         private final String spaceConnection;
@@ -273,6 +288,4 @@ public class SpaceSCM extends SCM {
             return branches;
         }
     }
-
-    private static final Logger LOGGER = Logger.getLogger(SpaceSCM.class.getName());
 }

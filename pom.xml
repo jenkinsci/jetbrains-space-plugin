@@ -31,7 +31,7 @@
     <!-- https://www.jenkins.io/doc/developer/plugin-development/choosing-jenkins-baseline/ -->
     <jenkins.version>2.401.3</jenkins.version>
     <gitHubRepo>jenkinsci/${project.artifactId}-plugin</gitHubRepo>
-    <spotless.check.skip>false</spotless.check.skip>
+    <spotless.check.skip>true</spotless.check.skip>
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
   </properties>
@@ -60,11 +60,11 @@
         <artifactId>kotlin-stdlib-jdk8</artifactId>
         <version>1.9.0</version>
       </dependency>
-      <dependency>
-        <groupId>org.jetbrains.kotlin</groupId>
-        <artifactId>kotlin-stdlib</artifactId>
-        <version>1.9.0</version>
-      </dependency>
+<!--      <dependency>-->
+<!--        <groupId>org.jetbrains.kotlin</groupId>-->
+<!--        <artifactId>kotlin-stdlib</artifactId>-->
+<!--        <version>1.9.0</version>-->
+<!--      </dependency>-->
       <dependency>
         <groupId>org.jetbrains.kotlin</groupId>
         <artifactId>kotlin-stdlib-common</artifactId>

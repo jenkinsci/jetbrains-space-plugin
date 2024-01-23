@@ -25,9 +25,23 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * <p>Pipeline step for reporting build status for a git commit to Space.</p>
+ *
+ * <p>
+ *     Space connection, project key and repository, if not specified explicitly, are taken from the build trigger settings
+ *     or from the git checkout settings.
+ * </p>
+ *
+ * <p>
+ *     Git revision and branch, if not specified explicitly,
+ *     are taken from the build trigger parameters (if Space webhook trigger is enabled for the build)
+ *     or from the git checkout settings (if source code is checked out from a Space repository).
+ * </p>
+ */
 public class ReportBuildStatusStep extends Step {
 
-    private CommitExecutionStatus buildStatus;
+    private @NonNull CommitExecutionStatus buildStatus;
     private String spaceConnection;
     private String spaceConnectionId;
     private String projectKey;
@@ -36,8 +50,8 @@ public class ReportBuildStatusStep extends Step {
     private String branch;
 
     @DataBoundConstructor
-    public ReportBuildStatusStep(String buildStatus) {
-        this.buildStatus = (buildStatus != null) ? CommitExecutionStatus.valueOf(buildStatus) : null;
+    public ReportBuildStatusStep(@NonNull  String buildStatus) {
+        this.buildStatus = CommitExecutionStatus.valueOf(buildStatus);
     }
 
     @Nullable
@@ -105,7 +119,7 @@ public class ReportBuildStatusStep extends Step {
     }
 
     public String getBuildStatus() {
-        return (buildStatus != null) ? buildStatus.name() : null;
+        return buildStatus.name();
     }
 
     @DataBoundSetter
@@ -114,10 +128,15 @@ public class ReportBuildStatusStep extends Step {
     }
 
     @Override
-    public StepExecution start(StepContext context) throws Exception {
-        return ReportBuildStatusStepExecution.Companion.start(this, context, ((DescriptorImpl) getDescriptor()).spacePluginConfiguration);
+    public StepExecution start(StepContext context) {
+        return ReportBuildStatusStepExecution.Companion.start(
+                this,
+                context,
+                ((DescriptorImpl) getDescriptor()).spacePluginConfiguration
+        );
     }
 
+    @SuppressWarnings("unused")
     @Extension
     public static class DescriptorImpl extends StepDescriptor {
 
@@ -200,6 +219,12 @@ public class ReportBuildStatusStep extends Step {
             return FormValidation.ok();
         }
 
+        /**
+         * Creates a new instance of {@link ReportBuildStatusStep} from the POST request coming from a submitted Jelly form.
+         * Flattens overriden Space connection and revision sections before passing on the form data to the default Stapler binding logic.
+         * This is needed because those parameters are part of nested optional sections in the Jelly form,
+         * but are listed as plain parameters in the scripted form of a pipeline step call for the ease of pipeline script authoring.
+         */
         @Override
         public ReportBuildStatusStep newInstance(@Nullable StaplerRequest req, @NonNull JSONObject formData) throws FormException {
             BuildStepUtilsKt.flattenNestedObject(formData, "customSpaceConnection");

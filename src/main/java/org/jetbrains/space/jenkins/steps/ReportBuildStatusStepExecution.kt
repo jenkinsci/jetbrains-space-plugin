@@ -1,5 +1,6 @@
 package org.jetbrains.space.jenkins.steps
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings
 import hudson.ExtensionList
 import hudson.model.CauseAction
 import hudson.model.Run
@@ -18,6 +19,11 @@ import space.jetbrains.api.runtime.types.CommitExecutionStatus
 import space.jetbrains.api.runtime.types.ProjectIdentifier
 import kotlin.coroutines.EmptyCoroutineContext
 
+/**
+ * Drives the execution of the [ReportBuildStatusStep], which is responsible for reporting the build status
+ * to JetBrains Space.
+ */
+@SuppressFBWarnings("SE_NO_SERIALVERSIONID")
 class ReportBuildStatusStepExecution(
     private val action: PostBuildStatusAction,
     private val buildStatus: CommitExecutionStatus,
@@ -30,6 +36,13 @@ class ReportBuildStatusStepExecution(
 ) : StepExecution(context) {
 
     companion object {
+        /**
+         * Obtain all the necessary parameters from the build trigger or git checkout settings if necessary and start the step execution.
+         *
+         * An instance of [PostBuildStatusAction] is also added to the build metadata
+         * to notify the build completion listener that build status reporting has already happened
+         * and it shouldn't post the final status on build completion, overwriting the one provided by this step.
+         */
         fun start(step: ReportBuildStatusStep, context: StepContext, spacePluginConfiguration: SpacePluginConfiguration) : StepExecution {
             val build = context.get(Run::class.java)
                 ?: return FailureStepExecution("StepContext does not contain the Run instance", context)
@@ -114,6 +127,7 @@ class ReportBuildStatusStepExecution(
             val action = PostBuildStatusAction(connection.id, projectKey, repositoryName, branch, revision)
             build.addAction(action)
 
+            @Suppress("DEPRECATION")
             return ReportBuildStatusStepExecution(
                 action = action,
                 buildStatus = CommitExecutionStatus.valueOf(step.buildStatus),
@@ -163,14 +177,5 @@ class ReportBuildStatusStepExecution(
             }
         }
         return false
-    }
-}
-
-class FailureStepExecution(private val message: String, context: StepContext) : StepExecution(context) {
-    override fun start(): Boolean {
-        val ex: Throwable = IllegalArgumentException(message)
-        ex.stackTrace = arrayOfNulls(0)
-        context.onFailure(ex)
-        return true
     }
 }

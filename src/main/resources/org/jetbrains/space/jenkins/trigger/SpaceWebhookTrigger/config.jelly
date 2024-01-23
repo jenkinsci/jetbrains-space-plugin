@@ -33,7 +33,7 @@
             <f:checkbox/>
         </f:entry>
         <f:entry title="Branches">
-            <f:textbox name="mergeRequestBranchesSpec" field="mergeRequestBranchesSpec" placeholder="*"
+            <f:textbox name="mergeRequestSourceBranchSpec" field="mergeRequestSourceBranchSpec" placeholder="*"
                        autoCompleteDelimChar=","/>
         </f:entry>
         <f:entry title="Title filter regex">

@@ -6,8 +6,12 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
+/**
+ * List of Space instance connections configured at the global Jenkins level.
+ */
 @Extension
 public class SpacePluginConfiguration extends GlobalConfiguration {
 
@@ -19,7 +23,7 @@ public class SpacePluginConfiguration extends GlobalConfiguration {
     }
 
     public List<SpaceConnection> getConnections() {
-        return connections;
+        return Collections.unmodifiableList(connections);
     }
 
     @DataBoundSetter

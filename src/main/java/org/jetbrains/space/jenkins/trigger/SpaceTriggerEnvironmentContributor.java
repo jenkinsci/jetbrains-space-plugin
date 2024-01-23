@@ -8,15 +8,20 @@ import hudson.model.Run;
 import hudson.model.TaskListener;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * Contributes environment variables to a Jenkins build triggered by a Space webhook.
+ * It retrieves information from the webhook cause and sets the corresponding environment variables
+ * providing information about the Space instance, project, repository and merge request (if build was triggered by the changes to a merge rquest).
+ */
 @Extension
 public class SpaceTriggerEnvironmentContributor extends EnvironmentContributor {
 
     @Override
     public void buildEnvironmentFor(@NotNull Run build, @NotNull EnvVars envs, @NotNull TaskListener listener) {
         build.getAllActions().stream()
-                .filter((a) -> a instanceof CauseAction)
-                .map((a) -> (CauseAction) a)
-                .map((a) -> a.findCause(SpaceWebhookTriggerCause.class))
+                .filter(CauseAction.class::isInstance)
+                .map(a -> (CauseAction) a)
+                .map(a -> a.findCause(SpaceWebhookTriggerCause.class))
                 .findFirst()
                 .ifPresent(cause -> {
                     envs.put(Env.SPACE_URL, cause.getSpaceUrl());

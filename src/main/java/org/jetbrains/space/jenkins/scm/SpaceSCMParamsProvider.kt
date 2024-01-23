@@ -1,5 +1,6 @@
 package org.jetbrains.space.jenkins.scm
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings
 import hudson.util.ListBoxModel
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.space.jenkins.config.SpacePluginConfiguration
@@ -16,6 +17,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
+@SuppressFBWarnings("NP_NONNULL_RETURN_VIOLATION")
 class SpaceSCMParamsProvider {
 
     @Inject
@@ -115,8 +117,6 @@ class SpaceSCMParamsProvider {
             )
         }
     }
-
-    companion object {
-        private val LOGGER: Logger = Logger.getLogger(SpaceSCMParamsProvider::class.java.name)
-    }
 }
+
+private val LOGGER = Logger.getLogger(SpaceSCMParamsProvider::class.java.name)

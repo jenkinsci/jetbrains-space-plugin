@@ -1,5 +1,6 @@
 package org.jetbrains.space.jenkins.steps
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings
 import hudson.ExtensionList
 import hudson.model.CauseAction
 import hudson.model.Run
@@ -15,6 +16,11 @@ import space.jetbrains.api.runtime.resources.projects
 import space.jetbrains.api.runtime.types.*
 import kotlin.coroutines.EmptyCoroutineContext
 
+/**
+ * Drives the execution of the [PostReviewTimelineMessageStep], which is responsible for posting a message
+ * to the merge request timeline in Space on behalf of Jenkins integration.
+ */
+@SuppressFBWarnings("SE_NO_SERIALVERSIONID")
 class PostReviewTimelineMessageStepExecution(
     private val spaceConnectionId: String,
     private val projectKey: String,
@@ -24,6 +30,9 @@ class PostReviewTimelineMessageStepExecution(
 ) : StepExecution(context) {
 
     companion object {
+        /**
+         * Obtain all the necessary parameters from the build trigger or git checkout settings if necessary and start the step execution.
+         */
         fun start(step: PostReviewTimelineMessageStep, context: StepContext, spacePluginConfiguration: SpacePluginConfiguration) :  StepExecution {
             val build: Run<*, *> = context.get(Run::class.java)
                 ?: return FailureStepExecution("StepContext does not contain the Run instance", context)

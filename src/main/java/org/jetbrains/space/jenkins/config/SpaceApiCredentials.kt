@@ -5,6 +5,9 @@ import com.cloudbees.plugins.credentials.NameWith
 import com.cloudbees.plugins.credentials.common.StandardCredentials
 import hudson.util.Secret
 
+/*
+ * Type of credentials used for accessing JetBrains Space API (client id and secret)
+ */
 @NameWith(SpaceApiCredentials.NameProvider::class)
 interface SpaceApiCredentials : StandardCredentials {
     val clientId: String

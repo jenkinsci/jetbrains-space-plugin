@@ -21,6 +21,9 @@ import java.util.UUID;
 
 import static org.apache.commons.lang.StringUtils.isBlank;
 
+/**
+ * Represents a connection to JetBrains Space instance, with its base url and both API and SSH credentials.
+ */
 public class SpaceConnection extends AbstractDescribableImpl<SpaceConnection> {
 
     private final String id;
@@ -58,6 +61,7 @@ public class SpaceConnection extends AbstractDescribableImpl<SpaceConnection> {
         return sshCredentialId;
     }
 
+    @SuppressWarnings("unused")
     @Extension
     public static class DescriptorImpl extends Descriptor<SpaceConnection> {
 
@@ -88,14 +92,11 @@ public class SpaceConnection extends AbstractDescribableImpl<SpaceConnection> {
         }
 
         @POST
-        public FormValidation doTestApiConnection(
-                @QueryParameter String baseUrl,
-                @QueryParameter String apiCredentialId
-        ) {
+        public FormValidation doTestApiConnection(@QueryParameter String baseUrl, @QueryParameter String apiCredentialId) {
             Jenkins.get().checkPermission(Item.CONFIGURE);
             try {
                 UtilsKt.testSpaceApiConnection(baseUrl, apiCredentialId);
-            } catch (Throwable ex) {
+            } catch (RuntimeException ex) {
                 return FormValidation.error(ex, "Couldn't connect to JetBrains Space API");
             }
 

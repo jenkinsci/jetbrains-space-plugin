@@ -6,6 +6,9 @@ import hudson.model.Job;
 import hudson.triggers.Trigger;
 import hudson.triggers.TriggerDescriptor;
 import hudson.util.ListBoxModel;
+import javax.inject.Inject;
+import java.util.UUID;
+import jenkins.triggers.SCMTriggerItem;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.space.jenkins.config.SpacePluginConfiguration;
 import org.jetbrains.space.jenkins.scm.SpaceSCMParamsProvider;
@@ -15,13 +18,15 @@ import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
 
-import javax.inject.Inject;
-import java.util.List;
-import java.util.UUID;
-
-import static jenkins.triggers.SCMTriggerItem.SCMTriggerItems.asSCMTriggerItem;
-
-public class SpaceWebhookTrigger extends Trigger<Job<?,?>> {
+/**
+ * <p>
+ * Trigger that runs a job in Jenkins whenever new commits are pushed to a git branch or a merge request is updated in Space.
+ * The trigger installs webhooks on Space side and relies on them for listening to the events in Space.
+ * </p>
+ *
+ * <p>Handling of the incoming webhook event is handled by the {@link SpaceWebhookEndpoint} class.</p>
+ */
+public class SpaceWebhookTrigger extends Trigger<Job<?, ?>> {
 
     @DataBoundConstructor
     public SpaceWebhookTrigger(String id, String spaceConnectionId, String projectKey, String repositoryName) {
@@ -51,10 +56,6 @@ public class SpaceWebhookTrigger extends Trigger<Job<?,?>> {
 
     public String getSpaceWebhookId() {
         return this.spaceWebhookId;
-    }
-
-    public void setSpaceWebhookId(String spaceWebhookId) {
-        this.spaceWebhookId = spaceWebhookId;
     }
 
     public Job<?, ?> getJob() {
@@ -110,12 +111,12 @@ public class SpaceWebhookTrigger extends Trigger<Job<?,?>> {
         this.mergeRequestTitleRegex = mergeRequestTitleRegex;
     }
 
-    public String getMergeRequestBranchesSpec() {
+    public String getMergeRequestSourceBranchSpec() {
         return mergeRequestSourceBranchSpec;
     }
 
     @DataBoundSetter
-    public void setMergeRequestBranchesSpec(String mergeRequestSourceBranchSpec) {
+    public void setMergeRequestSourceBranchSpec(String mergeRequestSourceBranchSpec) {
         this.mergeRequestSourceBranchSpec = mergeRequestSourceBranchSpec;
     }
 
@@ -128,10 +129,18 @@ public class SpaceWebhookTrigger extends Trigger<Job<?,?>> {
         ensureSpaceWebhook();
     }
 
+    /**
+     * <p>Ensures that webhook for this trigger is installed properly on the Space side.
+     * The id of the resulting Space webhook is persisted along with the trigger parameters
+     * to quickly match an arrived event with the webhook that caused it.</p>
+     *
+     * <p>Handling of the incoming webhook event is handled by the {@link SpaceWebhookEndpoint} class.</p>
+     */
     public void ensureSpaceWebhook() {
         this.spaceWebhookId = SpaceWebhookTriggerKt.ensureAndGetSpaceWebhookId(this);
     }
 
+    @SuppressWarnings("unused")
     @Extension
     public static class DescriptorImpl extends TriggerDescriptor {
 
@@ -152,7 +161,7 @@ public class SpaceWebhookTrigger extends Trigger<Job<?,?>> {
 
         @Override
         public boolean isApplicable(Item item) {
-            return asSCMTriggerItem(item) != null;
+            return SCMTriggerItem.SCMTriggerItems.asSCMTriggerItem(item) != null;
         }
 
         @POST

@@ -10,15 +10,24 @@ import org.jenkinsci.plugins.structs.describable.DescribableModel
 import org.jenkinsci.plugins.structs.describable.UninstantiatedDescribable
 import org.jetbrains.space.jenkins.config.SpacePluginConfiguration
 import org.jetbrains.space.jenkins.config.getUserRemoteConfig
+import org.jetbrains.space.jenkins.listeners.getSpaceGitCheckoutParams
 import org.jetbrains.space.jenkins.trigger.SpaceWebhookTrigger
 import org.kohsuke.stapler.DataBoundConstructor
 import java.util.logging.Level
 import java.util.logging.Logger
 
+/**
+ * Initializes and returns an underlying [GitSCM] object for a given [SpaceSCM] instance.
+ *
+ * Fetches repository clone url from Space API
+ * and configures git clone parameters using the clone url and credentials specified for the selected Space connection.
+ *
+ * @throws RuntimeException if there is an error connecting to JetBrains Space
+ */
 fun initializeGitScm(scm: SpaceSCM, job: Job<*, *>, spacePluginConfiguration: SpacePluginConfiguration): GitSCM {
     LOGGER.info("SpaceSCM.initializeGitScm")
 
-    val (space, branches) = getSpaceGitCheckoutParams(scm, job, spacePluginConfiguration)
+    val (space, branches) = spacePluginConfiguration.getSpaceGitCheckoutParams(scm, job)
     try {
         val remoteConfig = space.connection.getUserRemoteConfig(space.projectKey, space.repositoryName)
         val repoBrowser = SpaceRepositoryBrowser(space.connection, space.projectKey, space.repositoryName)
@@ -29,47 +38,26 @@ fun initializeGitScm(scm: SpaceSCM, job: Job<*, *>, spacePluginConfiguration: Sp
     }
 }
 
+/**
+ * Retrieves the [SpaceWebhookTrigger] associated with a given [Job].
+ */
 fun getSpaceWebhookTrigger(job: Job<*, *>) =
     (job as? TriggeredItem)?.triggers?.values?.filterIsInstance<SpaceWebhookTrigger>()?.firstOrNull()
 
-fun wrapCustomSpaceConnectionParams(args: Map<String, Any?>) = HashMap(args).apply {
-    val connectionId = args[CONNECTION_ID]
-    val connectionName = args[CONNECTION]
-    if (connectionId != null || connectionName != null) {
-        if (connectionId != null && connectionName != null)
-            throw IllegalArgumentException("$CONNECTION_ID and $CONNECTION cannot be specified at the same time")
-
-        connectionId?.let { put(CONNECTION_ID, it) }
-        connectionName?.let { put(CONNECTION, it) }
-        copyFrom(args, PROJECT_KEY)
-        copyFrom(args, REPOSITORY)
-        copyFrom(args, BRANCHES, required = false)
-    } else {
-        checkParameterAbsence(args, PROJECT_KEY)
-        checkParameterAbsence(args, REPOSITORY)
-        checkParameterAbsence(args, BRANCHES)
-    }
-    listOf(CONNECTION_ID, CONNECTION, PROJECT_KEY, REPOSITORY, BRANCHES).forEach {
-        remove(it)
-    }
-}
-
-fun unwrapCustomSpaceConnectionParams(ud: UninstantiatedDescribable) = HashMap(ud.arguments)
-    .apply {
-        (this[CUSTOM_SPACE_CONNECTION] as? UninstantiatedDescribable)?.let {
-            putAll(it.arguments)
-            remove(CUSTOM_SPACE_CONNECTION)
-        }
-    }
-    .let { ud.withArguments(it) }
-    .also {
-        val model = DescribableModel.of(PlainSpaceSCM::class.java)
-        it.model = model
-    }
-
-// used to create DescribableModel for the SpaceSCM representation in a pipeline script
+/**
+ * This class serves as a bridge or convertor between two different representations of a configured [SpaceSCM] object.
+ *
+ * [SpaceSCM] has different representations in Jenkins UI and in the scripted form as part of a pipeline script.
+ *   * Jenkins UI presents [SpaceSCM] configuration with a nested optional block for overriding Space connection parameters.
+ *   * In a scripted form, all the Space connection parameters (if present) are part of the plain function call parameters list.
+ *     Plain parameters list for configuring [SpaceSCM] instance in a pipeline script is much easier than passing in a nested object.
+ *
+ * [SpaceSCM] class itself has Space connection parameters as nested object, [PlainSpaceSCM] has all the same data but as plain properties list.
+ * Static functions for wrapping and unwrapping Space connection params convert untyped arguments maps between the two representations
+ * and are invoked from the [CustomDescribableModel] implementation on the [SpaceSCM.DescriptorImpl] descriptor class.
+ */
 @Suppress("unused")
-private class PlainSpaceSCM @DataBoundConstructor constructor(
+class PlainSpaceSCM @DataBoundConstructor constructor(
     val spaceConnectionId: String?,
     val spaceConnection: String?,
     val projectKey: String?,
@@ -78,7 +66,44 @@ private class PlainSpaceSCM @DataBoundConstructor constructor(
     val postBuildStatusToSpace: Boolean = false,
     val gitTool: String?,
     val extensions: List<GitSCMExtension>
-)
+) {
+    companion object {
+        fun wrapCustomSpaceConnectionParams(args: Map<String, Any?>) = HashMap(args).apply {
+            val connectionId = args[CONNECTION_ID]
+            val connectionName = args[CONNECTION]
+            if (connectionId != null || connectionName != null) {
+                if (connectionId != null && connectionName != null)
+                    throw IllegalArgumentException("$CONNECTION_ID and $CONNECTION cannot be specified at the same time")
+
+                connectionId?.let { put(CONNECTION_ID, it) }
+                connectionName?.let { put(CONNECTION, it) }
+                copyFrom(args, PROJECT_KEY)
+                copyFrom(args, REPOSITORY)
+                copyFrom(args, BRANCHES, required = false)
+            } else {
+                checkParameterAbsence(args, PROJECT_KEY)
+                checkParameterAbsence(args, REPOSITORY)
+                checkParameterAbsence(args, BRANCHES)
+            }
+            listOf(CONNECTION_ID, CONNECTION, PROJECT_KEY, REPOSITORY, BRANCHES).forEach {
+                remove(it)
+            }
+        }
+
+        fun unwrapCustomSpaceConnectionParams(ud: UninstantiatedDescribable) = HashMap(ud.arguments)
+            .apply {
+                (this[CUSTOM_SPACE_CONNECTION] as? UninstantiatedDescribable)?.let {
+                    putAll(it.arguments)
+                    remove(CUSTOM_SPACE_CONNECTION)
+                }
+            }
+            .let { ud.withArguments(it) }
+            .also {
+                val model = DescribableModel.of(PlainSpaceSCM::class.java)
+                it.model = model
+            }
+    }
+}
 
 private fun MutableMap<String, Any?>.copyFrom(args: Map<String, Any?>, key: String, required: Boolean = true) {
     args[key]?.let { put(key, it) }

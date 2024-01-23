@@ -7,16 +7,28 @@ import hudson.plugins.git.GitChangeSet;
 import hudson.plugins.git.browser.GitRepositoryBrowser;
 import hudson.scm.RepositoryBrowser;
 import net.sf.json.JSONObject;
+import org.apache.http.client.utils.URIBuilder;
 import org.jenkinsci.Symbol;
 import org.jetbrains.space.jenkins.config.SpaceConnection;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.stream.Collectors;
 
+/**
+ * Provides links to Space for commits, files and file diffs on the build changes page.
+ * Implements an extension point from the Jenkins Git plugin.
+ *
+ * @see <a href="https://plugins.jenkins.io/git/#plugin-content-repository-browser">Repository Browser section in Jenkins Git plugin documentation</a>
+ * @see hudson.plugins.git.browser.GitRepositoryBrowser
+ */
 public class SpaceRepositoryBrowser extends GitRepositoryBrowser {
 
     public SpaceRepositoryBrowser(SpaceConnection spaceConnection, String projectKey, String repositoryName) {
@@ -25,7 +37,24 @@ public class SpaceRepositoryBrowser extends GitRepositoryBrowser {
 
     @DataBoundConstructor
     public SpaceRepositoryBrowser(String repoUrl) {
-        super(repoUrl);
+        super(sanitizeRepoUrl(repoUrl));
+    }
+
+    /**
+     * Clean Space repository url of query parameters and irrelevant stuff
+     * and restrict to first 4 path segments to keep only the required part:
+     * <pre>/p/{project key}/repositories/{repo name}</pre>
+     */
+    private static String sanitizeRepoUrl(String repoUrl) {
+        try {
+            // clean repo url of query parameters and fragment
+            //
+            URIBuilder builder = new URIBuilder(repoUrl).removeQuery().setUserInfo(null).setFragment(null);
+            builder.setPathSegments(builder.getPathSegments().stream().limit(4).collect(Collectors.toList()));
+            return builder.toString();
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException("Invalid repoUrl", e);
+        }
     }
 
     @Override
@@ -59,5 +88,4 @@ public class SpaceRepositoryBrowser extends GitRepositoryBrowser {
             return req.bindJSON(SpaceRepositoryBrowser.class, jsonObject);
         }
     }
-
 }

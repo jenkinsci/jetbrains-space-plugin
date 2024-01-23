@@ -23,6 +23,10 @@ import java.nio.charset.StandardCharsets
 import java.util.logging.Logger
 import javax.servlet.http.HttpServletResponse
 
+/**
+ * Handles HTTP requests for the webhook callbacks from Space.
+ * Matches the incoming event with the trigger on one of the jobs and triggers this job if all conditions are satisfied.
+ */
 @Suppress("EXTENSION_SHADOWED_BY_MEMBER")
 @OptIn(ExperimentalSpaceSdkApi::class)
 fun SpaceWebhookEndpoint.doTrigger(request: StaplerRequest, response: StaplerResponse) {
@@ -33,14 +37,18 @@ fun SpaceWebhookEndpoint.doTrigger(request: StaplerRequest, response: StaplerRes
         return
     }
 
-    val requestAdapter = RequestAdapter(request, response)
+    val requestAdapter = RequestAdapterImpl(request, response)
     runBlocking {
+        // wrap webhook callback processing with the Space SDK function call that handles some common logic
+        // like verifying request signature and deserializing the payload for us
         Space.processPayload(requestAdapter, ktorClientForSpace, spaceAppInstanceStorage) { payload ->
             if (payload !is WebhookRequestPayload) {
                 LOGGER.warning("Got payload of type " + payload.javaClass.getSimpleName())
                 return@processPayload SpaceHttpResponse.RespondWithCode(HttpStatusCode.BadRequest)
             }
 
+            // match received webhook callback with trigger in Jenkins
+            // by comparing webhook id in the callback payload with the Space webhook id stored for each trigger
             val allJobs = Jenkins.get().getAllItems(TriggeredItem::class.java)
             val (job, trigger) = allJobs.findBySpaceWebhookId(payload.webhookId)
                 ?: run {
@@ -73,12 +81,12 @@ fun SpaceWebhookEndpoint.doTrigger(request: StaplerRequest, response: StaplerRes
             val spaceConnection = spacePluginConfiguration.getConnectionByClientId(payload.clientId)
                 ?: error("Space connection cannot be found for client id specified in webhook payload")
 
+            // deep check of event properties and trigger conditions to ensure that build should be triggered
             val result = getTriggeredBuildCause(trigger, payload.payload, spaceConnection)
-
             when (result) {
                 is WebhookEventResult.RunBuild -> {
                     val causeAction = CauseAction(result.cause)
-                    NoIdeaFreeze.triggerBuild(triggerItem, causeAction)
+                    triggerItem.scheduleBuild2(triggerItem.quietPeriod, causeAction)
                     SpaceHttpResponse.RespondWithOk
                 }
 
@@ -99,6 +107,92 @@ fun SpaceWebhookEndpoint.doTrigger(request: StaplerRequest, response: StaplerRes
     }
 }
 
+/**
+ * Space SDK requires consuming code to provide an implementation for the [RequestAdapterImpl] interface
+ * that abstracts the specific HTTP client used by the consumer code away from the SDK.
+ *
+ * This implementation allows Space SDK to interact with the [Stapler] library to deal with the HTTP request and response.
+ */
+@OptIn(ExperimentalSpaceSdkApi::class)
+private class RequestAdapterImpl(private val request: StaplerRequest, private val response: StaplerResponse) : space.jetbrains.api.runtime.helpers.RequestAdapter {
+    var responded = false
+        private set
+
+    override fun getHeader(headerName: String): String? {
+        return request.getHeader(headerName)
+    }
+
+    override suspend fun receiveText(): String {
+        @Suppress("BlockingMethodInNonBlockingContext")
+        return request.inputStream.readAllBytes().toString(StandardCharsets.UTF_8)
+    }
+
+    override suspend fun respond(httpStatusCode: Int, body: String) {
+        @Suppress("DEPRECATION")
+        response.setStatus(httpStatusCode, body)
+        responded = true
+    }
+}
+
+/**
+ * Space SDK implementation for handling webhook callbacks makes a call to Space API
+ * to fetch public key in order to verify the incoming request signature,
+ * therefore it needs an instance of HTTP client to access Space API.
+ *
+ * @see <a href="https://www.jetbrains.com/help/space/verify-space-in-application.html#verifying-requests-using-a-public-key">Verifying requests from Space using a public key</a>
+ */
+private val ktorClientForSpace = ktorClientForSpace();
+
+private fun List<TriggeredItem>.findBySpaceWebhookId(webhookId: String) =
+    firstNotNullOfOrNull { job ->
+        job.triggers.values
+            .filterIsInstance<SpaceWebhookTrigger>()
+            .firstOrNull { it.spaceWebhookId == webhookId }
+            ?.let { job to it }
+    }
+
+private fun List<TriggeredItem>.findByTriggerId(triggerId: String) =
+    firstNotNullOfOrNull { job ->
+        job.triggers.values
+            .filterIsInstance<SpaceWebhookTrigger>()
+            .firstOrNull { it.id == triggerId }
+            ?.let { job to it }
+    }
+
+private suspend fun SpaceClient.fetchWebhookById(webhookId: String) =
+    getRegisteredWebhooks().map { it.webhook }.firstOrNull { it.id == webhookId }
+
+/**
+ * Represents the result of checking whether an incoming webhook callback
+ * matches the trigger settings configured in Jenkins.
+ */
+private sealed class WebhookEventResult {
+    /**
+     * Event received from Space matches trigger conditions, build should be started
+     */
+    class RunBuild(val cause: SpaceWebhookTriggerCause) : WebhookEventResult()
+
+    /**
+     * Event received from Space was not expected to arrive according to trigger settings,
+     * probably webhook settings in Space are out of sync with trigger settings in Jenkins.
+     * Webhook in Space will be updated with the up-to-date settings when such event arrives.
+     */
+    data object UnexpectedEvent : WebhookEventResult()
+
+    /**
+     * Event received from Space was expected, but it shouldn't trigger a build in Jenkins
+     * because trigger conditions weren't satisfied.
+     * This happens, for example, when new commits are added to the merge request
+     * but the trigger requires it to be approved by all reviewers and the approvals aren't there yet.
+     */
+    data object IgnoredEvent : WebhookEventResult()
+}
+
+/**
+ * Checks whether an event received from Space matches the trigger conditions and thus whether a build must be triggered.
+ * This is a deep check of all the properties of the event and conditions of the trigger.
+ * The initial matching of trigger to Space webhook by the means of comparing the ids has already been done before.
+ */
 private fun getTriggeredBuildCause(trigger: SpaceWebhookTrigger, event: WebhookEvent, spaceConnection: SpaceConnection): WebhookEventResult {
     return when (trigger.triggerType) {
         SpaceWebhookTriggerType.Branches -> {
@@ -126,15 +220,15 @@ private fun getTriggeredBuildCause(trigger: SpaceWebhookTrigger, event: WebhookE
         }
 
         SpaceWebhookTriggerType.MergeRequests -> {
-            val (review, eventMatchesTrigger) = when (event) {
+            val (review, isEventExpectedForTrigger) = when (event) {
                 is CodeReviewWebhookEvent ->
-                    event.review to event.matchesTrigger(trigger)
+                    event.review to event.isExpectedFor(trigger)
 
                 is CodeReviewUpdatedWebhookEvent ->
-                    event.review to event.matchesTrigger(trigger)
+                    event.review to event.isExpectedFor(trigger)
 
                 is CodeReviewParticipantWebhookEvent ->
-                    event.review to event.matchesTrigger(trigger)
+                    event.review to event.isExpectedFor(trigger)
 
                 is CodeReviewCommitsUpdatedWebhookEvent ->
                     event.review to true
@@ -160,7 +254,7 @@ private fun getTriggeredBuildCause(trigger: SpaceWebhookTrigger, event: WebhookE
                 return WebhookEventResult.UnexpectedEvent
             }
 
-            if (!eventMatchesTrigger) {
+            if (!isEventExpectedForTrigger) {
                 // specific message should have been logged while checking the match
                 return WebhookEventResult.UnexpectedEvent
             }
@@ -215,17 +309,21 @@ private fun getTriggeredBuildCause(trigger: SpaceWebhookTrigger, event: WebhookE
     }
 }
 
-private sealed class WebhookEventResult {
-    class RunBuild(val cause: SpaceWebhookTriggerCause) : WebhookEventResult()
-    data object UnexpectedEvent : WebhookEventResult()
-    data object IgnoredEvent : WebhookEventResult()
+private fun CodeReviewWebhookEvent.isExpectedFor(trigger: SpaceWebhookTrigger): Boolean {
+    if (meta?.method != "Created") {
+        LOGGER.warning("Event meta is ${meta?.method}, expected 'Created' for trigger ${trigger.id}")
+        return false
+    }
+
+    if (trigger.isMergeRequestApprovalsRequired) {
+        LOGGER.warning("Got event for review creation but trigger ${trigger.id} is set up to run only after getting all approvals")
+        return false
+    }
+
+    return true
 }
 
-private fun CodeReviewWebhookEvent.matchesTrigger(trigger: SpaceWebhookTrigger) =
-    (meta?.method == "Created").logIfFalse("Event meta is ${meta?.method}, expected 'Created' for trigger ${trigger.id}") &&
-            (!trigger.isMergeRequestApprovalsRequired).logIfFalse("Got event for review creation but trigger ${trigger.id} is set up to run only after getting all approvals")
-
-private fun CodeReviewUpdatedWebhookEvent.matchesTrigger(trigger: SpaceWebhookTrigger): Boolean {
+private fun CodeReviewUpdatedWebhookEvent.isExpectedFor(trigger: SpaceWebhookTrigger): Boolean {
     if (titleMod == null) {
         LOGGER.warning("Got review updated event without title change for trigger ${trigger.id}")
         return false
@@ -239,54 +337,18 @@ private fun CodeReviewUpdatedWebhookEvent.matchesTrigger(trigger: SpaceWebhookTr
     return true
 }
 
-private fun CodeReviewParticipantWebhookEvent.matchesTrigger(trigger: SpaceWebhookTrigger) =
-    (reviewerState != null).logIfFalse("Got CodeReviewParticipantWebhookEvent without reviewer state change for trigger ${trigger.id}") &&
-            trigger.isMergeRequestApprovalsRequired.logIfFalse("Got CodeReviewParticipantWebhookEvent but trigger ${trigger.id} does not require reviewer approvals to run build")
-
-
-private fun List<TriggeredItem>.findBySpaceWebhookId(webhookId: String) =
-    firstNotNullOfOrNull { job ->
-        job.triggers.values
-            .filterIsInstance<SpaceWebhookTrigger>()
-            .firstOrNull { it.spaceWebhookId == webhookId }
-            ?.let { job to it }
+private fun CodeReviewParticipantWebhookEvent.isExpectedFor(trigger: SpaceWebhookTrigger): Boolean {
+    if (reviewerState == null) {
+        LOGGER.warning("Got CodeReviewParticipantWebhookEvent without reviewer state change for trigger ${trigger.id}")
+        return false
     }
 
-private fun List<TriggeredItem>.findByTriggerId(triggerId: String) =
-    firstNotNullOfOrNull { job ->
-        job.triggers.values
-            .filterIsInstance<SpaceWebhookTrigger>()
-            .firstOrNull { it.id == triggerId }
-            ?.let { job to it }
+    if (!trigger.isMergeRequestApprovalsRequired) {
+        LOGGER.warning("Got CodeReviewParticipantWebhookEvent but trigger ${trigger.id} does not require reviewer approvals to run build")
+        return false
     }
 
-private suspend fun SpaceClient.fetchWebhookById(webhookId: String) =
-    getRegisteredWebhooks().map { it.webhook }.firstOrNull { it.id == webhookId }
-
-private fun Boolean.logIfFalse(message: String) = this.also {
-    if (!it) LOGGER.warning(message)
-}
-
-private val ktorClientForSpace = ktorClientForSpace();
-
-@OptIn(ExperimentalSpaceSdkApi::class)
-private class RequestAdapter(private val request: StaplerRequest, private val response: StaplerResponse) : space.jetbrains.api.runtime.helpers.RequestAdapter {
-    var responded = false
-        private set
-
-    override fun getHeader(headerName: String): String? {
-        return request.getHeader(headerName)
-    }
-
-    override suspend fun receiveText(): String {
-        @Suppress("BlockingMethodInNonBlockingContext")
-        return request.inputStream.readAllBytes().toString(StandardCharsets.UTF_8)
-    }
-
-    override suspend fun respond(httpStatusCode: Int, body: String) {
-        response.setStatus(httpStatusCode, body)
-        responded = true
-    }
+    return true
 }
 
 private val LOGGER = Logger.getLogger(SpaceWebhookEndpoint::class.java.name)

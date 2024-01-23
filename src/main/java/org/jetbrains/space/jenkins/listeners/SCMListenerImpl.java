@@ -12,6 +12,16 @@ import org.jetbrains.space.jenkins.config.SpacePluginConfiguration;
 import javax.inject.Inject;
 import java.io.File;
 
+/**
+ * Listens to the source code checkout from git event and performs two actions if checkout is performed from a git repo hosted in Space.
+ * <ul>
+ *     <li>Reports build status as running to Space</li>
+ *     <li>
+ *         Appends an instance of {@link SpaceGitScmCheckoutAction} to the build containing all the checkout parameters.
+ *         This action in turn also takes care of emitting Space-specific environment variables for the build.
+ *     </li>
+ * </ul>
+ */
 @Extension
 public class SCMListenerImpl extends SCMListener {
 

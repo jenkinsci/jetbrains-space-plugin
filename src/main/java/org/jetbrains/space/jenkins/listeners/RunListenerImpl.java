@@ -9,6 +9,9 @@ import org.jetbrains.space.jenkins.config.SpacePluginConfiguration;
 
 import javax.inject.Inject;
 
+/**
+ * Listens for the completion of Jenkins build and posts build status to Space if needed.
+ */
 @Extension
 public class RunListenerImpl extends RunListener<Run<?, ?>> {
 

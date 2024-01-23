@@ -1,5 +1,8 @@
 package org.jetbrains.space.jenkins.trigger
 
+/**
+ * Contains constants for environment variable names specific to JetBrains Space.
+ */
 object Env {
     const val SPACE_URL = "SPACE_URL"
     const val PROJECT_KEY = "SPACE_PROJECT_KEY"

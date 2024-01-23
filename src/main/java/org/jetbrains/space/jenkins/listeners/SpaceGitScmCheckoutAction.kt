@@ -5,6 +5,11 @@ import hudson.model.EnvironmentContributingAction
 import hudson.model.Run
 import org.jetbrains.space.jenkins.trigger.Env
 
+/**
+ * An implementation of [hudson.model.Action] that is stored in build run metadata
+ * and provides information about the source code checked out from Space git repository
+ * and the Space-specific settings of the checkout step.
+ */
 class SpaceGitScmCheckoutAction(
     val spaceConnectionId: String,
     val spaceUrl: String,
