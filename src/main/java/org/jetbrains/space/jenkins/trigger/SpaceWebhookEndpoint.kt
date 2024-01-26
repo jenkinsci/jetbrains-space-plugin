@@ -301,6 +301,7 @@ private fun getTriggeredBuildCause(trigger: SpaceWebhookTrigger, event: WebhookE
                         number = review.number,
                         title = review.title,
                         sourceBranch = review.branchPairs.firstOrNull()?.sourceBranchInfo?.head,
+                        targetBranch = review.branchPairs.firstOrNull()?.targetBranchInfo?.head,
                         url = "${spaceConnection.baseUrl}/p/${review.project.key}/reviews/${review.number}"
                     )
                 )

@@ -41,7 +41,7 @@ import java.util.stream.Collectors;
  */
 public class ReportBuildStatusStep extends Step {
 
-    private @NonNull CommitExecutionStatus buildStatus;
+    private CommitExecutionStatus buildStatus;
     private String spaceConnection;
     private String spaceConnectionId;
     private String projectKey;
@@ -50,8 +50,8 @@ public class ReportBuildStatusStep extends Step {
     private String branch;
 
     @DataBoundConstructor
-    public ReportBuildStatusStep(@NonNull  String buildStatus) {
-        this.buildStatus = CommitExecutionStatus.valueOf(buildStatus);
+    public ReportBuildStatusStep(String buildStatus) {
+        this.buildStatus = (buildStatus != null) ? CommitExecutionStatus.valueOf(buildStatus) : null;
     }
 
     @Nullable
@@ -119,7 +119,7 @@ public class ReportBuildStatusStep extends Step {
     }
 
     public String getBuildStatus() {
-        return buildStatus.name();
+        return (buildStatus != null) ? buildStatus.name() : null;
     }
 
     @DataBoundSetter

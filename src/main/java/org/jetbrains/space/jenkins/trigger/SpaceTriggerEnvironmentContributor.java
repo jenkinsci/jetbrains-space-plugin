@@ -7,6 +7,7 @@ import hudson.model.EnvironmentContributor;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.space.jenkins.Env;
 
 /**
  * Contributes environment variables to a Jenkins build triggered by a Space webhook.
@@ -37,6 +38,9 @@ public class SpaceTriggerEnvironmentContributor extends EnvironmentContributor {
                         envs.put(Env.MERGE_REQUEST_TITLE, mergeRequest.getTitle());
                         if (mergeRequest.getSourceBranch() != null) {
                             envs.put(Env.MERGE_REQUEST_SOURCE_BRANCH, mergeRequest.getSourceBranch());
+                        }
+                        if (mergeRequest.getTargetBranch() != null) {
+                            envs.put(Env.MERGE_REQUEST_TARGET_BRANCH, mergeRequest.getTargetBranch());
                         }
                     }
                 });

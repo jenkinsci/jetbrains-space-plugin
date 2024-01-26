@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+
+    <f:entry>
+        <div class="help" style="display: block">
+            <p>Accepts HTTP method, path (starting with <code>/api/http</code>, without host) and optionally request body.
+                Returns an instance of <a href="https://fasterxml.github.io/jackson-databind/javadoc/2.8/com/fasterxml/jackson/databind/JsonNode.html">JsonNode</a> class or null if no response body is present.
+                Takes care of the proper authentication using Space connection specified explicitly or obtained from buid trigger or code checkout settings.
+            </p>
+
+            <p>Sample usage in the pipeline script:</p>
+            <code><pre>
+script {
+    def result = callSpaceApi(httpMethod: 'GET', requestUrl: '/api/http/applications/me')
+    echo result["name"].asText()
+    echo result["createdAt"]["iso"].asText()
+}
+            </pre></code>
+        </div>
+    </f:entry>
+
+    <f:entry title="HTTP method" field="httpMethod">
+        <f:select />
+    </f:entry>
+
+    <f:entry title="Request URL" field="requestUrl">
+        <f:textbox />
+    </f:entry>
+
+    <f:entry title="Request body (JSON)" field="requestBody">
+        <f:textarea />
+    </f:entry>
+
+    <f:optionalBlock title="Override Space connection" field="customSpaceConnection" checked="${instance.customSpaceConnection != null}">
+        <j:set var="it" value="${instance.customSpaceConnection}"/>
+
+        <f:entry title="Connection" field="spaceConnection">
+            <f:select value="${it.spaceConnection}" clazz="jb-space-autofill jb-space-cache" />
+        </f:entry>
+    </f:optionalBlock>
+
+</j:jelly>

@@ -35,5 +35,6 @@ class MergeRequest(
     val number: Int,
     val title: String,
     val sourceBranch: String?,
+    val targetBranch: String?,
     val url: String
 )

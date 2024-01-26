@@ -3,7 +3,7 @@ package org.jetbrains.space.jenkins.listeners
 import hudson.EnvVars
 import hudson.model.EnvironmentContributingAction
 import hudson.model.Run
-import org.jetbrains.space.jenkins.trigger.Env
+import org.jetbrains.space.jenkins.Env
 
 /**
  * An implementation of [hudson.model.Action] that is stored in build run metadata

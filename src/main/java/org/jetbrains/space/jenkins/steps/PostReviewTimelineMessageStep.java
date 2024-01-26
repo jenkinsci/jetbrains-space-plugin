@@ -42,7 +42,7 @@ public class PostReviewTimelineMessageStep extends Step {
     private String spaceConnection;
     private String spaceConnectionId;
     private String projectKey;
-    private Integer reviewNumber;
+    private Integer mergeRequestNumber;
 
     @DataBoundConstructor
     public PostReviewTimelineMessageStep(String messageText) {
@@ -87,13 +87,13 @@ public class PostReviewTimelineMessageStep extends Step {
         this.projectKey = projectKey;
     }
 
-    public Integer getReviewNumber() {
-        return reviewNumber;
+    public Integer getMergeRequestNumber() {
+        return mergeRequestNumber;
     }
 
     @DataBoundSetter
-    public void setReviewNumber(Integer reviewNumber) {
-        this.reviewNumber = reviewNumber;
+    public void setMergeRequestNumber(Integer mergeRequestNumber) {
+        this.mergeRequestNumber = mergeRequestNumber;
     }
 
     @SuppressWarnings("unused")

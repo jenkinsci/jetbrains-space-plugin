@@ -152,26 +152,24 @@ class ReportBuildStatusStepExecution(
                 val spaceConnection = spacePluginConfiguration.getConnectionById(action.spaceConnectionId)
                     ?: error("No Space connection found by specified id")
 
-                launch {
-                    spaceConnection.getApiClient().use { spaceApiClient ->
-                        spaceApiClient.projects.repositories.revisions.externalChecks.reportExternalCheckStatus(
-                            project = ProjectIdentifier.Key(action.projectKey),
-                            repository = action.repositoryName,
-                            revision = action.revision,
-                            branch = action.branch,
-                            changes = emptyList(),
-                            executionStatus = buildStatus,
-                            url = buildUrl,
-                            externalServiceName = "Jenkins",
-                            taskName = taskName,
-                            taskId = taskName,
-                            taskBuildId = taskBuildId,
-                            timestamp = taskBuildStartTimeInMillis,
-                            description = taskBuildDescription
-                        )
-                    }
+                spaceConnection.getApiClient().use { spaceApiClient ->
+                    spaceApiClient.projects.repositories.revisions.externalChecks.reportExternalCheckStatus(
+                        project = ProjectIdentifier.Key(action.projectKey),
+                        repository = action.repositoryName,
+                        revision = action.revision,
+                        branch = action.branch,
+                        changes = emptyList(),
+                        executionStatus = buildStatus,
+                        url = buildUrl,
+                        externalServiceName = "Jenkins",
+                        taskName = taskName,
+                        taskId = taskName,
+                        taskBuildId = taskBuildId,
+                        timestamp = taskBuildStartTimeInMillis,
+                        description = taskBuildDescription
+                    )
                 }
-                context.onSuccess(Unit)
+                context.onSuccess(null)
             } catch (ex: Throwable) {
                 context.onFailure(ex)
             }

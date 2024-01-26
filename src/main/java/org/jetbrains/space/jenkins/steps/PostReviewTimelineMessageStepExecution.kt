@@ -24,7 +24,7 @@ import kotlin.coroutines.EmptyCoroutineContext
 class PostReviewTimelineMessageStepExecution(
     private val spaceConnectionId: String,
     private val projectKey: String,
-    private val reviewNumber: Int,
+    private val mergeRequestNumber: Int,
     private val messageText: String,
     context: StepContext
 ) : StepExecution(context) {
@@ -91,7 +91,7 @@ class PostReviewTimelineMessageStepExecution(
                 )
             }
 
-            val reviewNumber = (step.reviewNumber ?: triggerCause?.mergeRequest?.number)
+            val mergeRequestNumber = (step.mergeRequestNumber ?: triggerCause?.mergeRequest?.number)
                 ?: return FailureStepExecution(
                     "Merge request cannot be inferred from the build trigger settings and is not specified explicitly in the workflow step",
                     context
@@ -100,7 +100,7 @@ class PostReviewTimelineMessageStepExecution(
             return PostReviewTimelineMessageStepExecution(
                 spaceConnectionId = connection.id,
                 projectKey = projectKey,
-                reviewNumber = reviewNumber,
+                mergeRequestNumber = mergeRequestNumber,
                 messageText = step.messageText,
                 context = context
             )
@@ -122,19 +122,19 @@ class PostReviewTimelineMessageStepExecution(
                 spaceConnection.getApiClient().use { spaceApiClient ->
                     val review = spaceApiClient.projects.codeReviews.getCodeReview(
                         ProjectIdentifier.Key(projectKey),
-                        ReviewIdentifier.Number(reviewNumber)
+                        ReviewIdentifier.Number(mergeRequestNumber)
                     ) {
                         feedChannelId()
-                    } as? MergeRequestRecord ?: error("Cannot find merge request $reviewNumber in Space project $projectKey")
+                    } as? MergeRequestRecord ?: error("Cannot find merge request $mergeRequestNumber in Space project $projectKey")
 
                     review.feedChannelId?.let { channelId ->
                         spaceApiClient.chats.messages.sendMessage(
                             ChannelIdentifier.Id(channelId),
                             ChatMessage.Text(messageText)
                         )
-                    } ?: error("Merge request $reviewNumber in Space project $projectKey does not have associated feed channel")
+                    } ?: error("Merge request $mergeRequestNumber in Space project $projectKey does not have associated feed channel")
                 }
-                context.onSuccess(Unit)
+                context.onSuccess(null)
             } catch (ex: Throwable) {
                 context.onFailure(ex)
             }

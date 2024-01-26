@@ -8,7 +8,7 @@
 
     <f:entry title="Merge request number (optional)"
              description="Optional, taken from the merge request that triggered the build if left blank"
-             field="reviewNumber">
+             field="mergeRequestNumber">
         <f:number/>
     </f:entry>
 

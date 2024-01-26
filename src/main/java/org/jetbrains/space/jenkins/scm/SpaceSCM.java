@@ -23,7 +23,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.space.jenkins.config.SpaceConnection;
 import org.jetbrains.space.jenkins.config.SpacePluginConfiguration;
 import org.jetbrains.space.jenkins.config.UtilsKt;
-import org.jetbrains.space.jenkins.trigger.Env;
+import org.jetbrains.space.jenkins.Env;
 import org.jetbrains.space.jenkins.trigger.SpaceWebhookTrigger;
 import org.kohsuke.stapler.*;
 import org.kohsuke.stapler.verb.POST;
@@ -33,7 +33,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
 
 /**
  * <p>{@link SCM} implementation for JetBrains Space. Wraps the standard Git SCM implementation, adding some features on top of it.</p>
