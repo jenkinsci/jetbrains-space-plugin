@@ -11,7 +11,7 @@ This Jenkins plugin provides an integration with JetBrains Space and enables the
 * Posting messages to the merge request timeline in JetBrains Space on behalf of Jenkins integration;
 * Hyperlinks to branches, files and diffs in JetBrains Space on the Changes page of a Jenkins build.
 
-Report issues and enhancements in the GitHub issues.
+Please use GitHub Issues to report problems or suggest enhancements.
 
 ## Requirements
 
@@ -137,8 +137,8 @@ checkout SpaceGit(postBuildStatusToSpace: false)
 checkout SpaceGit(projectKey: 'PRJ', branches: [[name: 'refs/heads/feature-*']], repository: 'prj-main-repo', spaceConnection: 'Space')
 ```
 
-The scripted form as described above, all being optional (but *spaceConnection*, *projectKey* and *repository* should be either all present or all omitted).
-You can use Jenkins pipeline syntax generator to pick **checkout** step, choose **JetBrains Space** source, configure all the parameters in UI
+All the parameters in the scripted form described above are optional. However, the parameters *spaceConnection*, *projectKey* and *repository* are bundled and should be either all present or all omitted.
+You can use a Jenkins pipeline syntax generator to pick the **checkout** step, choose the **JetBrains Space** source, configure all the parameters in the UI
 and then generate a script for calling this step with the parameters configured.
 
 There is also an option to check out sources from Space git repository by using a standard Git SCM and providing the git repo clone URL and SSH key or HTTP password in place.
@@ -207,7 +207,7 @@ There is also an option to override Space connection and project for the unlikel
 Space provides an extensive HTTP API to fetch or manipulate its data, described in detail at https://www.jetbrains.com/help/space/api.html.
 Space plugin for Jenkins provides a pipeline step to easily perform calls to this API on behalf of Jenkins integration.
 You pick one of the preconfigured Space connections, specify HTTP method, path and request body, and the step takes care of proper authentication
-and response JSON deserialization. The step returns parsed JSON response in the form of [JsonNode](https://fasterxml.github.io/jackson-databind/javadoc/2.8/com/fasterxml/jackson/databind/JsonNode.html) instance from the Jackson library.
+and deserialization of a JSON response. The step returns parsed JSON response in the form of [JsonNode](https://fasterxml.github.io/jackson-databind/javadoc/2.8/com/fasterxml/jackson/databind/JsonNode.html) instance from the Jackson library.
 You can then access various properties of the resulting JSON by using indexing into its properties.
 
 ```groovy
@@ -247,7 +247,7 @@ All the environment variables provided by the standard Git plugin (https://plugi
 Installing this plugin to Jenkins is the recommended way to integrate Jenkins with JetBrains Space. If installing the plugin is not possible for some reason,
 there is still a possibility to set up the integration, although it would be limited and less convenient to use.
 
-See more details and a sample of the safe merge setup without installing Jenkins plugin [here](docs/integration-without-plugin.md).
+ [See more details and an example of the safe merge setup without the Jenkins plugin](docs/integration-without-plugin.md).
 
 ## Contributing
 
