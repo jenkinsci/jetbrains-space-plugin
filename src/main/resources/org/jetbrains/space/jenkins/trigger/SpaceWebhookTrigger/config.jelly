@@ -17,11 +17,19 @@
         <f:select clazz="jb-space-autofill jb-space-cache" />
     </f:entry>
 
+    <f:radioBlock name="triggerType" value="OnlySafeMerge" title="Use only for safe merge"
+                  checked="${instance.triggerType == 'OnlySafeMerge'}" inline="true"
+                  help="/plugin/jetbrains-space/help/help-triggerOnlyOnSafeMerge.html">
+    </f:radioBlock>
+
     <f:radioBlock name="triggerType" value="Branches" title="Trigger on commits"
                   checked="${instance.triggerType == 'Branches' }" inline="true"
                   help="/plugin/jetbrains-space/help/help-triggerOnCommits.html">
         <f:entry title="Branch specs">
             <f:textbox name="branchSpec" field="branchSpec" placeholder="*" autoCompleteDelimChar=","/>
+        </f:entry>
+        <f:entry title="Also allow safe merge" field="allowSafeMergeWithBranches">
+            <f:checkbox />
         </f:entry>
     </f:radioBlock>
 
@@ -32,12 +40,15 @@
                  field="mergeRequestApprovalsRequired">
             <f:checkbox/>
         </f:entry>
-        <f:entry title="Branch specs">
-            <f:textbox name="mergeRequestSourceBranchSpec" field="mergeRequestSourceBranchSpec" placeholder="*"
+        <f:entry title="Branch specs" field="mergeRequestSourceBranchSpec">
+            <f:textbox name="mergeRequestSourceBranchSpec" placeholder="*"
                        autoCompleteDelimChar=","/>
         </f:entry>
-        <f:entry title="Title filter regex">
-            <f:textbox name="mergeRequestTitleRegex" field="mergeRequestTitleRegex" placeholder="Leave blank for none"/>
+        <f:entry title="Title filter regex" field="mergeRequestTitleRegex">
+            <f:textbox name="mergeRequestTitleRegex" placeholder="Leave blank for none"/>
+        </f:entry>
+        <f:entry title="Also allow safe merge" field="allowSafeMergeWithMergeRequests">
+            <f:checkbox />
         </f:entry>
     </f:radioBlock>
 

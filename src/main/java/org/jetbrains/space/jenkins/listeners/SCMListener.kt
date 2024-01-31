@@ -1,9 +1,6 @@
 package org.jetbrains.space.jenkins.listeners
 
-import hudson.model.Job
-import hudson.model.Result
-import hudson.model.Run
-import hudson.model.TaskListener
+import hudson.model.*
 import hudson.plugins.git.BranchSpec
 import hudson.plugins.git.GitSCM
 import hudson.scm.SCM
@@ -12,6 +9,7 @@ import kotlinx.coroutines.runBlocking
 import org.jetbrains.space.jenkins.config.*
 import org.jetbrains.space.jenkins.scm.*
 import org.jetbrains.space.jenkins.steps.PostBuildStatusAction
+import org.jetbrains.space.jenkins.trigger.SpaceWebhookTriggerCause
 import org.jetbrains.space.jenkins.trigger.SpaceWebhookTriggerType
 import space.jetbrains.api.runtime.SpaceClient
 import space.jetbrains.api.runtime.resources.projects
@@ -36,8 +34,10 @@ fun onScmCheckout(build: Run<*, *>, scm: SCM, listener: TaskListener, spacePlugi
     underlyingGitScm.buildEnvironment(build, gitScmEnv)
 
     val space = when {
-        scm is SpaceSCM ->
-            spacePluginConfiguration.getSpaceGitCheckoutParams(scm, build.parent).first
+        scm is SpaceSCM -> {
+            val triggerCause = build.getCause(SpaceWebhookTriggerCause::class.java)
+            spacePluginConfiguration.getSpaceGitCheckoutParams(scm, build.parent, triggerCause).first
+        }
 
         gitScmEnv[GitSCM.GIT_URL] != null && gitScmEnv[GitSCM.GIT_COMMIT] != null ->
             spacePluginConfiguration.getSpaceGitCheckoutParamsByCloneUrl(gitScmEnv[GitSCM.GIT_URL]!!)
@@ -86,7 +86,11 @@ fun onBuildCompleted(build: Run<*, *>, listener: TaskListener, spacePluginConfig
         .filter(SpaceGitScmCheckoutAction::postBuildStatusToSpace)
         .filter { action: SpaceGitScmCheckoutAction ->
             postBuildStatusActions.stream()
-                .noneMatch { a: PostBuildStatusAction -> a.spaceConnectionId == action.spaceConnectionId && a.projectKey == action.projectKey && a.repositoryName == action.repositoryName }
+                .noneMatch { a: PostBuildStatusAction ->
+                    a.spaceConnectionId == action.spaceConnectionId &&
+                            a.projectKey == action.projectKey
+                            && a.repositoryName == action.repositoryName
+                }
         }
 
     for (action in checkoutActions) {
@@ -127,9 +131,10 @@ class SpaceGitCheckoutParams(val connection: SpaceConnection, val projectKey: St
  *
  * @throws IllegalArgumentException If the Space connection is not specified in the source checkout settings or build trigger.
  */
-fun SpacePluginConfiguration.getSpaceGitCheckoutParams(scm: SpaceSCM, job: Job<*, *>): Pair<SpaceGitCheckoutParams, List<BranchSpec>> {
-    val spaceWebhookTrigger = getSpaceWebhookTrigger(job)
+fun SpacePluginConfiguration.getSpaceGitCheckoutParams(scm: SpaceSCM, job: Job<*, *>, triggerCause: SpaceWebhookTriggerCause?): Pair<SpaceGitCheckoutParams, List<BranchSpec>> {
     val customSpaceConnection = scm.customSpaceConnection
+    val spaceWebhookTrigger = getSpaceWebhookTrigger(job)
+
     return when {
         customSpaceConnection != null -> {
             val params = SpaceGitCheckoutParams(
@@ -138,7 +143,9 @@ fun SpacePluginConfiguration.getSpaceGitCheckoutParams(scm: SpaceSCM, job: Job<*
                 projectKey = customSpaceConnection.projectKey,
                 repositoryName = customSpaceConnection.repository
             )
-            val branches = customSpaceConnection.branches.takeUnless { it.isNullOrEmpty() } ?: listOf(BranchSpec("refs/heads/*"))
+            val branches = triggerCause?.cause?.let { listOf(BranchSpec(it.branchForCheckout)) }
+                ?: customSpaceConnection.branches.takeUnless { it.isNullOrEmpty() }
+                ?: listOf(BranchSpec("refs/heads/*"))
             params to branches
         }
 
@@ -149,16 +156,7 @@ fun SpacePluginConfiguration.getSpaceGitCheckoutParams(scm: SpaceSCM, job: Job<*
                 projectKey = spaceWebhookTrigger.projectKey,
                 repositoryName = spaceWebhookTrigger.repositoryName
             )
-            val branches = when (spaceWebhookTrigger.triggerType) {
-                SpaceWebhookTriggerType.Branches ->
-                    spaceWebhookTrigger.branchSpec
-
-                SpaceWebhookTriggerType.MergeRequests ->
-                    spaceWebhookTrigger.mergeRequestSourceBranchSpec
-            }.takeUnless { it.isNullOrBlank() }.let {
-                listOf(BranchSpec(it ?: "refs/heads/*"))
-            }
-            params to branches
+            params to listOf(BranchSpec(triggerCause?.let { it.cause.branchForCheckout } ?: "refs/*"))
         }
 
         else -> {

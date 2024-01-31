@@ -28,6 +28,7 @@ Licensed under MIT, see [LICENSE](LICENSE.md)
   - [Configure Space integration in Jenkins](#configure-space-integration-in-jenkins)
 - [Usage](#usage)
   - [Triggering Builds](#triggering-builds)
+  - [Using Jenkins builds for safe merge](#using-jenkins-builds-for-safe-merge)
   - [Checking out source code from Space](#checking-out-source-code-from-space)
   - [Hyperlinks to Space for build changes](#hyperlinks-to-space-for-build-changes)
   - [Posting build status to Space](#posting-build-status-to-space)
@@ -62,11 +63,10 @@ If you want to use Jenkins integration in multiple Space projects, repeat this f
 If you don’t have the administrator rights in those projects, you’ll also have to wait for the project administrator to approve a permission request for your application.
 Alternatively, you can grant these permissions to Jenkins integration globally, for all projects. Do this via the **Configure** button in the **Global authorization** section on the same page.
 
-Go to the **Permanent Tokens** tab and create a new permanent token for Jenkins to report external status checks to Space.
-Copy the token, you’ll need to provide it later when setting up the integration on the Jenkins side.
-
 Go to the **Git Keys** tab and upload a new public SSH key that Jenkins will use to pull code from the Space git repository and optionally to push changes to it.
 You'll need to provide the corresponding private key to Jenkins when setting up the integration on the Jenkins side.
+
+Go to the **Endpoint** tab and specify Jenkins URL with `/jb-space/process` appended to it as an application endpoint.
 
 Go to the **Authentication** tab and find the **Client ID** and **Client secret** values there. Those are the credentials used to access the Space HTTP API.
 You'll need to provide them to Jenkins as well when setting up the integration on the Jenkins side.
@@ -98,7 +98,7 @@ Note: SSH connection to Space git repositories is not tested by this button.
 ### Triggering builds
 
 Space plugin provides an option to trigger builds whenever new commits are pushed to a git repository or some changes are made to a merge request in Space.
-This trigger is enabled by the **JetBrains Space webhook trigger** checkbox in the **Build Triggers** section of the job or pipeline configuration page.
+This trigger is enabled by the **Triggered by JetBrains Space** checkbox in the **Build Triggers** section of the job or pipeline configuration page.
 For this trigger, you need to specify the Space connection, project and git repository to use. The list of projects and repositories in the drop-down menus is fetched from the Space API, 
 filtered to only include projects authorized for integration with Jenkins during the Space-side setup process.
 
@@ -113,7 +113,41 @@ If a build is set to be triggered by merge request changes, there are three even
   or when the last reviewer approves the merge request;
 * **Branch specs** filter has the same format as the one for triggering by commits, and is applied to the source branch of a merge request;
 * **Title filter regex** allows triggering builds only for merge requests with a title matching specified regular expression.
-  A build will be triggered when merge request with title matching regex is created, when new commits are added to it, or when non-matching merge request title is changed so that it now matches the regex; 
+  A build will be triggered when merge request with title matching regex is created, when new commits are added to it, or when non-matching merge request title is changed so that it now matches the regex.
+  Regular expression must match the entire merge request title, not just a part of it. For example, to exclude all merge requests with title starting with "WIP" from triggering builds, specify `(?!WIP).+` as a regex.
+
+### Using Jenkins builds for safe merge
+
+Safe merge is a JetBrains Space feature that lets you execute quality checks for the merge request on the merge commit before changes are actually merged into target branch.
+It checks a temporary merge commit it creates and allows you to merge only if the checks are successful.
+See [Space documentation](https://www.jetbrains.com/help/space/branch-and-merge-restrictions.html#safe-merge) on safe merge for more information.
+
+You can use builds in Jenkins to perform quality checks for safe merge. On Jenkins side, you need to enable **Triggered by JetBrains Space** for a build,
+specify Space connection, project and repository and enable safe merge. Safe merge can be enabled in the trigger settings in one of the three ways:
+* if the build will be used only for safe merges, choose **Use only for safe merge**;
+  * if the build will be used for safe merges as well as automatically triggered by pushes to specific git branches, choose **Trigger on commits** and then check **Also allow safe merge**;
+  * if the build will be used for safe merges as well as automatically triggered by changes to specific merge requests, choose **Trigger on merge requests changes** and then check **Also allow safe merge**.
+
+On Space side, safe merge should be configured in `safe-merge.json` file that is stored in the git repository. Here is a sample of safe merge configuration for Jenkins:
+```json
+{
+    "version": "1.0",
+    "builds": [
+        {
+            "jenkins": {
+                // name of the Space application created when setting up Jenkins integration in Space 
+                "instance": "Jenkins",
+                // full name of the Jenkins job or workflow, including all the parent folders if any
+                "project": "Folder/NestedJob"
+            }
+        }
+    ]
+}
+```
+
+In the Jenkins pipeline script, the only thing you'll need to have is `checkout SpaceGit()` step to check out source code from git.
+The temporary branch with the merge commit created by Space will be checked out from the repository specified in build trigger settings.
+Build status will also be automatically reported to Space upon build completion.
 
 ### Checking out source code from Space
 
@@ -125,7 +159,7 @@ There are two options for checking out code from Space by using this SCM:
   to be displayed as an external check for the commit (which can be further used for the [Merge request quality gates](https://www.jetbrains.com/help/space/branch-and-merge-restrictions.html#quality-gates-for-merge-requests) or [Safe merge](https://www.jetbrains.com/help/space/branch-and-merge-restrictions.html#safe-merge) functionality in Space).
   When this checkbox is selected, Jenkins will report the status for the git commit currently being built to Space twice - first as `running` when the build starts and then as `succeeded`, `failed` or `terminated` depending on the build outcome when it finishes.
 * **Specify Space repository** optional section allows overriding Space connection, project and repository that build status is reported to.
-  By default, these parameters are taken from the build trigger settings. If the build isn't triggered by the **JetBrains Space webhook trigger**, then they must be specified in the source checkout settings, 
+  By default, these parameters are taken from the build trigger settings. If the build isn't triggered by the JetBrains Space trigger, then they must be specified in the source checkout settings, 
   otherwise the build will fail at runtime.
 
 ![Checkout settings](docs/images/scm.png)
@@ -180,7 +214,7 @@ postBuildStatusToSpace buildStatus: 'SUCCEEDED'
 As usual, you can explore the parameters available and generate the script snippet on the **Pipeline syntax** page in Jenkins.
 The only required parameter is **Build status to report** (or *buildStatus* in the script representation).
 There are also two optional sections that allow overriding the Space connection parameters (Space instance, project and repository) and the git commit and branch name that the build status is reported for.
-When the Space connection parameters aren't specified explicitly, they are taken either (in priority order) from the build trigger settings (if **JetBrains Space webhook trigger** is enabled for this job or pipeline)
+When the Space connection parameters aren't specified explicitly, they are taken either (in priority order) from the build trigger settings (if JetBrains Space trigger is enabled for this job or pipeline)
 or from the source code checkout settings (this can be either Space SCM or Git SCM, in the latter case Jenkins will try to infer the configured Space connection based on the git clone repository URL).
 
 Once a build status is reported to Space by invoking the **postBuildStatusToSpace** pipeline step, it won't be automatically reported again
@@ -197,10 +231,10 @@ postReviewTimelineMessageToSpace 'Here are some details about how the build is g
 ```
 
 You can use [markdown syntax](https://www.jetbrains.com/help/space/markdown-syntax.html) to add formatting to the message.
-If your job or pipeline uses **JetBrains Space webhook trigger** listening to merge request updates, then the message text is the only parameter required for the pipeline step.
+If your job or pipeline uses JetBrains Space trigger listening to merge request updates, then the message text is the only parameter required for the pipeline step.
 Otherwise, you will also need to provide the **mergeRequestNumber** parameter. The number of a merge request is part of its URL - `/p/<project key>/reviews/<number>/timeline`.
 
-There is also an option to override Space connection and project for the unlikely case when the **JetBrains Space webhook trigger** or the git checkout step settings of the job or pipeline cannot be used.
+There is also an option to override Space connection and project for the unlikely case when the JetBrains Space trigger or the git checkout step settings of the job or pipeline cannot be used.
 
 ### Calling Space HTTP API from pipeline script
 
@@ -218,7 +252,7 @@ script {
 }
 ```
 
-By default, the Space instance to perform HTTP request to is taken from the **JetBrains Space webhook trigger** or git checkout step settings of the job or pipeline.
+By default, the Space instance to perform HTTP request to is taken from the JetBrains Space trigger or git checkout step settings of the job or pipeline.
 There is also an option to override this choice.
 
 **NOTE:** Make sure you grant Jenkins integration the permissions required to access all the API endpoints you intend to call from your pipeline scripts. 
@@ -230,7 +264,7 @@ Space plugin provides a number of environment variables that can be used by the 
 * `SPACE_PROJECT_KEY` - Space project key;
 * `SPACE_REPOSITORY_NAME` - git repository name
 
-These three env variables are provided by the **JetBrains Space webhook trigger** or by the source code checkout step (code checkout settings take precedence over build trigger in case both have explicitly specified Space connection).
+These three env variables are provided by the JetBrains Space trigger or by the source code checkout step (code checkout settings take precedence over build trigger in case both have explicitly specified Space connection).
 
 When a build is triggered by a Space merge request, those variables are also provided:
 * `SPACE_MERGE_REQUEST_ID` - merge request identifier, can be used to query more details about the merge request from the Space HTTP API; 
@@ -239,6 +273,9 @@ When a build is triggered by a Space merge request, those variables are also pro
 * `SPACE_MERGE_REQUEST_TARGET_BRANCH` - name of the merge request target branch;
 * `SPACE_MERGE_REQUEST_TITLE`- merge request title;
 * `SPACE_MERGE_REQUEST_URL` - URL of the merge request page in Space; 
+* `IS_SAFE_MERGE`- true if build has been triggered by a safe merge, absent otherwise;
+* `IS_DRY_RUN` - true if safe merge is being executed in dry run mode (that is, Space won't merge the changes into target branch even if checks are successful);
+* `SAFE_MERGE_STARTED_BY_USER_ID` - id of Space user that has started the safe merge; absent if build is not triggered by safe merge.
 
 All the environment variables provided by the standard Git plugin (https://plugins.jenkins.io/git/#plugin-content-environment-variables) are also available when checking out source code using Space SCM.
 

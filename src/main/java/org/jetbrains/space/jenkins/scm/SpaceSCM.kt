@@ -1,6 +1,7 @@
 package org.jetbrains.space.jenkins.scm
 
 import hudson.model.Job
+import hudson.model.Run
 import hudson.plugins.git.BranchSpec
 import hudson.plugins.git.GitSCM
 import hudson.plugins.git.GitTool
@@ -12,6 +13,7 @@ import org.jetbrains.space.jenkins.config.SpacePluginConfiguration
 import org.jetbrains.space.jenkins.config.getUserRemoteConfig
 import org.jetbrains.space.jenkins.listeners.getSpaceGitCheckoutParams
 import org.jetbrains.space.jenkins.trigger.SpaceWebhookTrigger
+import org.jetbrains.space.jenkins.trigger.SpaceWebhookTriggerCause
 import org.kohsuke.stapler.DataBoundConstructor
 import java.util.logging.Level
 import java.util.logging.Logger
@@ -24,12 +26,13 @@ import java.util.logging.Logger
  *
  * @throws RuntimeException if there is an error connecting to JetBrains Space
  */
-fun initializeGitScm(scm: SpaceSCM, job: Job<*, *>, spacePluginConfiguration: SpacePluginConfiguration): GitSCM {
+fun initializeGitScm(scm: SpaceSCM, job: Job<*, *>, build: Run<*, *>?, spacePluginConfiguration: SpacePluginConfiguration): GitSCM {
     LOGGER.info("SpaceSCM.initializeGitScm")
 
-    val (space, branches) = spacePluginConfiguration.getSpaceGitCheckoutParams(scm, job)
+    val triggerCause = build?.getCause(SpaceWebhookTriggerCause::class.java)
+    val (space, branches) = spacePluginConfiguration.getSpaceGitCheckoutParams(scm, job, triggerCause)
     try {
-        val remoteConfig = space.connection.getUserRemoteConfig(space.projectKey, space.repositoryName)
+        val remoteConfig = space.connection.getUserRemoteConfig(space.projectKey, space.repositoryName, triggerCause)
         val repoBrowser = SpaceRepositoryBrowser(space.connection, space.projectKey, space.repositoryName)
         return GitSCM(listOf(remoteConfig), branches, repoBrowser, scm.gitTool, scm.extensions)
     } catch (ex: Throwable) {

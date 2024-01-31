@@ -23,24 +23,25 @@ import org.kohsuke.stapler.verb.POST;
  * Trigger that runs a job in Jenkins whenever new commits are pushed to a git branch or a merge request is updated in Space.
  * The trigger installs webhooks on Space side and relies on them for listening to the events in Space.
  * </p>
- *
  * <p>Handling of the incoming webhook event is handled by the {@link SpaceWebhookEndpoint} class.</p>
  */
 public class SpaceWebhookTrigger extends Trigger<Job<?, ?>> {
 
     @DataBoundConstructor
-    public SpaceWebhookTrigger(String id, String spaceConnectionId, String projectKey, String repositoryName) {
+    public SpaceWebhookTrigger(String id, String spaceConnectionId, String projectKey, String repositoryName, Boolean allowSafeMergeWithBranches, Boolean allowSafeMergeWithMergeRequests) {
         this.id = (id != null && !id.isBlank()) ? id : UUID.randomUUID().toString();
         this.spaceConnectionId = spaceConnectionId;
         this.projectKey = projectKey;
         this.repositoryName = repositoryName;
         this.triggerType = SpaceWebhookTriggerType.Branches;
+        this.allowSafeMerge = allowSafeMergeWithBranches || allowSafeMergeWithMergeRequests;
     }
 
     private final String id;
     private final String spaceConnectionId;
     private final String projectKey;
     private final String repositoryName;
+    private final Boolean allowSafeMerge;
 
     private SpaceWebhookTriggerType triggerType;
     private String spaceWebhookId;
@@ -72,6 +73,18 @@ public class SpaceWebhookTrigger extends Trigger<Job<?, ?>> {
 
     public String getRepositoryName() {
         return repositoryName;
+    }
+
+    public boolean getAllowSafeMerge() {
+        return allowSafeMerge;
+    }
+
+    public Boolean getAllowSafeMergeWithBranches() {
+        return allowSafeMerge;
+    }
+
+    public Boolean getAllowSafeMergeWithMergeRequests() {
+        return allowSafeMerge;
     }
 
     @NotNull
@@ -156,7 +169,7 @@ public class SpaceWebhookTrigger extends Trigger<Job<?, ?>> {
 
         @Override
         public @NotNull String getDisplayName() {
-            return "JetBrains Space webhook trigger";
+            return "Triggered by JetBrains Space";
         }
 
         @Override

@@ -108,7 +108,7 @@ public class SpaceSCM extends SCM {
             @Nullable Launcher launcher,
             @NotNull TaskListener listener
     ) throws IOException, InterruptedException {
-        return getAndInitializeGitScmIfNull(build.getParent())
+        return getAndInitializeGitScmIfNull(build.getParent(), build)
                 .calcRevisionsFromBuild(build, workspace, launcher, listener);
     }
 
@@ -121,7 +121,7 @@ public class SpaceSCM extends SCM {
             @CheckForNull File changelogFile,
             @CheckForNull SCMRevisionState baseline
     ) throws IOException, InterruptedException {
-        getAndInitializeGitScmIfNull(build.getParent())
+        getAndInitializeGitScmIfNull(build.getParent(), build)
                 .checkout(build, launcher, workspace, listener, changelogFile, baseline);
     }
 
@@ -133,7 +133,7 @@ public class SpaceSCM extends SCM {
             @NotNull TaskListener listener,
             @NotNull SCMRevisionState baseline
     ) throws IOException, InterruptedException {
-        return getAndInitializeGitScmIfNull(project)
+        return getAndInitializeGitScmIfNull(project, null)
                 .compareRemoteRevisionWith(project, launcher, workspace, listener, baseline);
     }
 
@@ -156,7 +156,7 @@ public class SpaceSCM extends SCM {
                 env.put(Env.REPOSITORY_NAME, trigger.getRepositoryName());
             }
         }
-        getAndInitializeGitScmIfNull(build.getParent()).buildEnvironment(build, env);
+        getAndInitializeGitScmIfNull(build.getParent(), build).buildEnvironment(build, env);
     }
 
     @Override
@@ -164,15 +164,15 @@ public class SpaceSCM extends SCM {
         return gitSCM.createChangeLogParser();
     }
 
-    private GitSCM getAndInitializeGitScmIfNull(Job<?, ?> job) {
+    private GitSCM getAndInitializeGitScmIfNull(Job<?, ?> job, @Nullable Run<?, ?> build) {
         if (gitSCM == null) {
-            initializeGitScm(job);
+            initializeGitScm(job, build);
         }
         return gitSCM;
     }
 
-    private void initializeGitScm(Job<?, ?> job) {
-        gitSCM = SpaceSCMKt.initializeGitScm(this, job, ((DescriptorImpl) getDescriptor()).spacePluginConfiguration);
+    private void initializeGitScm(Job<?, ?> job, @Nullable Run<?, ?> build) {
+        gitSCM = SpaceSCMKt.initializeGitScm(this, job, build, ((DescriptorImpl) getDescriptor()).spacePluginConfiguration);
     }
 
     @SuppressWarnings("unused")

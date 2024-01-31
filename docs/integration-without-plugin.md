@@ -2,6 +2,10 @@
 
 Configuring the integration on the Space side is exactly the same as with the Jenkins plugin. Please refer to the [corresponding instructions](../README.md#enable-jenkins-integration-in-space) for completing this step.
 
+The only difference is that you will also need a permanent token for Jenkins to to report external status checks to Space.
+While setting up an application in Space, go to the **Permanent Tokens** tab and create a new permanent token there.
+Copy the token, you’ll need to provide it later when setting up the integration on the Jenkins side.
+
 **TODO There will be a small difference on the Space side as well as soon as we implement simplified Jenkins integration management (checkbox "no Jenkins plugin", persistent token generation), so will need to document it.**
 
 On the Jenkins side, proceed as follows:
@@ -40,7 +44,7 @@ On the Space side:
 ```
 
 On the Jenkins side:
-* Add the **GIT_BRANCH** and **GIT_COMMIT** parameters to your pipeline. They will be passed from Space when triggering a build in Jenkins.
+* Add the **GIT_BRANCH** parameter of type `string` to your pipeline. They will be passed from Space when triggering a build in Jenkins.
 * Set up posting external commit check results as part of your Jenkins pipeline. Take the following code snippet as an example:
 
 ```groovy
@@ -54,7 +58,7 @@ pipeline {
 
     // Specify Space url, project, repo and api token as environment variables for using in pipeline steps
     environment {
-        SPACE_URL = "https://org.jetbrains.space"
+        SPACE_URL = "https://myorg.jetbrains.space"
         SPACE_PROJECT = "PRJ"
         SPACE_REPO = "repo"
         SPACE_TOKEN = credentials('jetbrains.space.token')
@@ -63,21 +67,29 @@ pipeline {
     stages {
         // Before performing any build actions, report to Space that build has started.
         // When Space enqueues build for execution, it only gets a link to created queue item as a result.
-        // Notifying that build has started enables Space to match this queue item with a started build instance. 
+        // Notifying that build has started enables Space to match this queue item with a started build instance.
         // This is an optional, but recommended step.
         stage('Report build started') {
             steps {
+                // Source code must be checked out from git before any build status can be reported
+                // so that we can propagate commit id to the environment variable to be used for reporting build status.
+                // Note also how the GIT_BRANCH env variable is used to specify refspec to fetch as well as branch name to check out from git.
+                script {
+                    def scmVars = checkout scmGit(branches: [[name: env.GIT_BRANCH]], extensions: [], userRemoteConfigs: [[credentialsId: 'ssh-creds-for-space', refspec: "+${env.GIT_BRANCH}:${env.GIT_BRANCH}", url: "ssh://git@git.jetbrains.space/myorg/${env.SPACE_PROJECT}/${env.SPACE_REPO}.git"]])
+                    env.GIT_COMMIT = scmVars.GIT_COMMIT
+                }
                 postBuildResultToSpace("RUNNING")
             }
         }
-				// Do your build
+
+        // Do your build
         stage('Do build') {
             steps {
                 sh 'sleep 10'
             }
         }
     }
-    
+
     // Handle all the possible outcomes of the pipeline execution
     // and report them to Space
     post {
@@ -107,7 +119,8 @@ pipeline {
 
 The function `postBuildResultToSpace` is responsible for posting the build execution status to Space. It uses a number of environment variables for building the request:
 
-- GIT_BRANCH and GIT_COMMIT here are the parameters passed to Jenkins from Space when starting the build;
+- GIT_BRANCH here is the parameter passed to Jenkins from Space when starting the build;
+- GIT_COMMIT env variable is filled from the results of the source code checkout step;
 - BUILD_URL, JOB_NAME and BUILD_ID are built-in env variables provided by Jenkins;
 - SPACE_URL, SPACE_PROJECT and SPACE_REPO are env variables containing your Space organization URL, Space project key, and Space repository name. In this example they are specified within the pipeline script itself, but they could also be specified elsewhere in Jenkins;
 - SPACE_TOKEN is the env variable containing Space API token from credentials.

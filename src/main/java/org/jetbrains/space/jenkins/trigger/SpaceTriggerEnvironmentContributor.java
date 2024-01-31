@@ -9,6 +9,8 @@ import hudson.model.TaskListener;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.space.jenkins.Env;
 
+import java.util.Objects;
+
 /**
  * Contributes environment variables to a Jenkins build triggered by a Space webhook.
  * It retrieves information from the webhook cause and sets the corresponding environment variables
@@ -21,15 +23,15 @@ public class SpaceTriggerEnvironmentContributor extends EnvironmentContributor {
     public void buildEnvironmentFor(@NotNull Run build, @NotNull EnvVars envs, @NotNull TaskListener listener) {
         build.getAllActions().stream()
                 .filter(CauseAction.class::isInstance)
-                .map(a -> (CauseAction) a)
-                .map(a -> a.findCause(SpaceWebhookTriggerCause.class))
+                .map(a -> ((CauseAction) a).findCause(SpaceWebhookTriggerCause.class))
+                .filter(Objects::nonNull)
                 .findFirst()
                 .ifPresent(cause -> {
                     envs.put(Env.SPACE_URL, cause.getSpaceUrl());
                     envs.put(Env.PROJECT_KEY, cause.getProjectKey());
                     envs.put(Env.REPOSITORY_NAME, cause.getRepositoryName());
 
-                    MergeRequest mergeRequest = cause.getMergeRequest();
+                    TriggerCause.MergeRequest mergeRequest = cause.getMergeRequest();
                     if (mergeRequest != null) {
                         envs.put(Env.PROJECT_KEY, mergeRequest.getProjectKey());
                         envs.put(Env.MERGE_REQUEST_ID, mergeRequest.getId());
@@ -41,6 +43,13 @@ public class SpaceTriggerEnvironmentContributor extends EnvironmentContributor {
                         }
                         if (mergeRequest.getTargetBranch() != null) {
                             envs.put(Env.MERGE_REQUEST_TARGET_BRANCH, mergeRequest.getTargetBranch());
+                        }
+
+                        TriggerCauseSafeMerge safeMerge = mergeRequest.getSafeMerge();
+                        if (safeMerge != null) {
+                            envs.put(Env.IS_SAFE_MERGE, Boolean.toString(true));
+                            envs.put(Env.IS_DRY_RUN, Boolean.toString(safeMerge.isDryRun()));
+                            envs.put(Env.SAFE_MERGE_STARTED_BY_USER_ID, safeMerge.getStartedByUserId());
                         }
                     }
                 });

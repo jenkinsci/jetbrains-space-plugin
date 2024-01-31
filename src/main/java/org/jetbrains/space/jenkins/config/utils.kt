@@ -8,6 +8,7 @@ import hudson.security.ACL
 import io.ktor.http.*
 import jenkins.model.Jenkins
 import kotlinx.coroutines.runBlocking
+import org.jetbrains.space.jenkins.trigger.SpaceWebhookTriggerCause
 import space.jetbrains.api.runtime.SpaceAppInstance
 import space.jetbrains.api.runtime.SpaceAuth
 import space.jetbrains.api.runtime.SpaceClient
@@ -53,7 +54,7 @@ fun SpaceConnection.getApiClient(): SpaceClient {
     return SpaceClient(appInstance, SpaceAuth.ClientCredentials())
 }
 
-fun SpaceConnection.getUserRemoteConfig(projectKey: String, repositoryName: String): UserRemoteConfig {
+fun SpaceConnection.getUserRemoteConfig(projectKey: String, repositoryName: String, triggerCause: SpaceWebhookTriggerCause?): UserRemoteConfig {
     getApiClient().use { spaceApiClient ->
         val repoUrls = runBlocking {
             spaceApiClient.projects.repositories.url(ProjectIdentifier.Key(projectKey), repositoryName) {
@@ -64,7 +65,7 @@ fun SpaceConnection.getUserRemoteConfig(projectKey: String, repositoryName: Stri
         return UserRemoteConfig(
             if (sshCredentialId.isBlank()) repoUrls.httpUrl else repoUrls.sshUrl,
             repositoryName,
-            null,
+            triggerCause?.cause?.branchForCheckout?.let { "+$it:$it" },
             sshCredentialId.ifBlank { apiCredentialId }
         )
     }

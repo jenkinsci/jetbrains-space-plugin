@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core">
+    <j:if test="${it.dryRun}">
+        <p>Triggered by dry run for the merge request <a href="${it.mergeRequest.url}">${it.mergeRequest.title}</a></p>
+    </j:if>
+    <j:if test="${it.safeMerge}">
+        <p>Triggered by safe merge for the merge request <a href="${it.mergeRequest.url}">${it.mergeRequest.title}</a></p>
+    </j:if>
+    <j:if test="${it.mergeRequest != null and !it.dryRun and !it.safeMerge}">
+        <p>Triggered by changes to the merge request <a href="${it.mergeRequest.url}">${it.mergeRequest.title}</a></p>
+    </j:if>
+    <j:if test="${it.branchPush != null}">
+        <p>Triggered by updates to git branch <a href="${it.branchPush.url}">${it.branchPush.head}</a></p>
+    </j:if>
+</j:jelly>

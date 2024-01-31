@@ -27,11 +27,11 @@ import java.util.*;
  *
  * <p>
  *     Merge request number, if not specified explicitly, is taken from the build trigger settings.
- *     The build must use JetBrains Space webhook trigger configured for merge request changes in this case.
+ *     The build must use JetBrains Space trigger configured for merge request changes in this case.
  * </p>
  *
  * <p>
- *     Space connection and project, if not specified explicitly, are taken from the JetBrains Space webhook trigger settings
+ *     Space connection and project, if not specified explicitly, are taken from the JetBrains Space trigger settings
  *     or from the Space git checkout settings.
  * </p>
  *

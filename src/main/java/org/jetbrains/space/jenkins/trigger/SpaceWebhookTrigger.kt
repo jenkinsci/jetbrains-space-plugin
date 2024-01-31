@@ -39,7 +39,7 @@ fun SpaceWebhookTrigger.ensureAndGetSpaceWebhookId(): String? {
         runBlocking {
             spaceConnection.getApiClient().use { spaceApiClient ->
                 val existingWebhooks =
-                    spaceApiClient.getRegisteredWebhooks().filter { it.webhook.name.startsWith("GEN|") }
+                    spaceApiClient.getRegisteredWebhooks().filter { it.webhook.name.startsWith("GEN|$id") }
                 val webhookName = getSpaceWebhookName(projectKey, repositoryName, id)
                 existingWebhooks
                     .filter { it.webhook.name != webhookName }
@@ -50,14 +50,15 @@ fun SpaceWebhookTrigger.ensureAndGetSpaceWebhookId(): String? {
                         )
                     }
 
-                val subscription = createSubscription(projectKey, repositoryName, spaceApiClient)
-                spaceApiClient.ensureTriggerWebhook(
-                    projectKey = projectKey,
-                    repositoryName = repositoryName,
-                    triggerId = id,
-                    subscription = subscription,
-                    existingWebhooks = existingWebhooks
-                )
+                createSubscription(projectKey, repositoryName, spaceApiClient)?.let { subscription ->
+                    spaceApiClient.ensureTriggerWebhook(
+                        projectKey = projectKey,
+                        repositoryName = repositoryName,
+                        triggerId = id,
+                        subscription = subscription,
+                        existingWebhooks = existingWebhooks
+                    )
+                }
             }
         }
     } catch (ex: Throwable) {
@@ -69,7 +70,7 @@ fun SpaceWebhookTrigger.ensureAndGetSpaceWebhookId(): String? {
 /**
  * Generates an API model for feeding into Space API to create events subscription for a webhook.
  */
-private suspend fun SpaceWebhookTrigger.createSubscription(projectKey: String, repositoryName: String, spaceApiClient: SpaceClient): CustomGenericSubscriptionIn {
+private suspend fun SpaceWebhookTrigger.createSubscription(projectKey: String, repositoryName: String, spaceApiClient: SpaceClient): CustomGenericSubscriptionIn? {
     val projectId = spaceApiClient.projects.getProject(ProjectIdentifier.Key(projectKey)).id
     return when (triggerType) {
         SpaceWebhookTriggerType.MergeRequests ->
@@ -80,7 +81,7 @@ private suspend fun SpaceWebhookTrigger.createSubscription(projectKey: String, r
                     repository = repositoryName,
                     authors = listOf(),
                     participants = listOf(),
-                    branchSpec = mergeRequestSourceBranchSpec?.split(';')?.filterNot { it.isBlank() }?.takeUnless { it.isEmpty() }.orEmpty(),
+                    branchSpec = splitBranchSpecs(mergeRequestSourceBranchSpec),
                     pathSpec = listOf(),
                     titleRegex = mergeRequestTitleRegex
                 )),
@@ -93,13 +94,27 @@ private suspend fun SpaceWebhookTrigger.createSubscription(projectKey: String, r
             )
         SpaceWebhookTriggerType.Branches ->
             CustomGenericSubscriptionIn(
-                subjectCode = "Repository.Heads",
-                // TODO - pass branch specs
-                filters = listOf(RepoHeadsSubscriptionFilterIn(projectId, repositoryName)),
-                eventTypeCodes = listOf("Repository.Heads")
+                subjectCode = "Repository.Push",
+                filters = listOf(RepoPushSubscriptionFilterIn(
+                    projectId,
+                    repositoryName,
+                    RepoCommitsSubscriptionFilterSpec(
+                        authors = emptyList(),
+                        committers = emptyList(),
+                        branchSpec = splitBranchSpecs(branchSpec),
+                        pathSpec = "",
+                        messageRegex = ""
+                    )
+                )),
+                eventTypeCodes = listOf("Repository.Push")
             )
+        SpaceWebhookTriggerType.OnlySafeMerge ->
+            null
     }
 }
+
+private fun splitBranchSpecs(spec: String?) =
+    spec?.split(';')?.filterNot { it.isBlank() }?.takeUnless { it.isEmpty() }.orEmpty()
 
 /**
  * Generates a name for the Space webhook from the trigger id, project key and repository name
@@ -130,7 +145,7 @@ private suspend fun SpaceClient.ensureTriggerWebhook(
     val rootUrl = Jenkins.get().rootUrl
         ?: throw IllegalStateException("Jenkins instance has no root url specified")
 
-    val triggerUrl = "${rootUrl.trimEnd('/')}/${SpaceWebhookEndpoint.URL}/trigger"
+    val triggerUrl = "${rootUrl.trimEnd('/')}/${SpaceWebhookEndpoint.URL}/process"
 
     val existing = existingWebhooks.firstOrNull { it.webhook.name == webhookName }
     return if (existing == null) {
@@ -207,12 +222,12 @@ private val payloadFields: WebhookEventPartial.() -> Unit = {
     repository()
 
     // git push events
-    changes {
-        heads {
-            name()
-            newId()
-        }
-    }
+    head()
+    oldCommitId()
+    newCommitId()
+    created()
+    deleted()
+    forced()
 
     // code review events
     titleMod {
