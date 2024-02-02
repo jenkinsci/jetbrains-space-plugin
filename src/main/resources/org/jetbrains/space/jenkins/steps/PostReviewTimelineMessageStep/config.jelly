@@ -12,7 +12,7 @@
         <f:number/>
     </f:entry>
 
-    <f:optionalBlock title="Override Space connection" field="customSpaceConnection" checked="${instance.customSpaceConnection != null}">
+    <f:optionalBlock title="Override JetBrains Space connection" field="customSpaceConnection" checked="${instance.customSpaceConnection != null}">
         <j:set var="it" value="${instance.customSpaceConnection}"/>
 
         <f:entry title="Connection" field="spaceConnection">

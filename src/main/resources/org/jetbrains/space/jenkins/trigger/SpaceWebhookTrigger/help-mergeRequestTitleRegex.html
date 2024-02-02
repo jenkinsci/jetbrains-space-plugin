@@ -1,7 +1,7 @@
 <div>
     <p>Merge request title must match the specified regular expression.</p>
-    <p>A build will be triggered on any new commits in a merge request with title matching the regular expression.
-        A build will also get triggered for a non-matching merge request whenever merge request title changes so that it starts matching the expression.
+    <p>A build will be triggered on any new commits in a merge request if its title is matching the regular expression.
+        A build will also get triggered for a non-matching merge request whenever the merge request title changes so that it starts matching the expression.
     </p>
-    <p>Regular expression must match the entire merge request title, not just a part of it. For example, to exclude all merge requests with title starting with "WIP" from triggering builds, specify <i>(?!WIP).+</i> as a regex.</p>
+    <p>Regular expression must match the entire merge request title, not just a part of it. For example, to exclude all merge requests with a title starting with "WIP" from triggering builds, specify <i>(?!WIP).+</i> as a regex.</p>
 </div>

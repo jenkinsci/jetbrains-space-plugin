@@ -108,7 +108,7 @@ public class PostReviewTimelineMessageStep extends Step {
 
         @Override
         public @NotNull String getDisplayName() {
-            return "Post message to review timeline in JetBrains Space";
+            return "Post message to the review timeline in JetBrains Space";
         }
 
         @Override

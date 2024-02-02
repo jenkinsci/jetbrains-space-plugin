@@ -5,7 +5,7 @@
         <f:textbox field="id" />
     </f:invisibleEntry>
 
-    <f:entry title="Space connection" field="spaceConnectionId">
+    <f:entry title="JetBrains Space connection" field="spaceConnectionId">
         <f:select clazz="jb-space-autofill jb-space-cache" />
     </f:entry>
 

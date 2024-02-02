@@ -6,11 +6,11 @@
         <f:select field="buildStatus" />
     </f:entry>
 
-    <f:optionalBlock title="Override Space connection" field="customSpaceConnection" checked="${instance.customSpaceConnection != null}">
+    <f:optionalBlock title="Override JetBrains Space connection" field="customSpaceConnection" checked="${instance.customSpaceConnection != null}">
         <j:set var="it" value="${instance.customSpaceConnection}"/>
 
         <f:description>
-            Overrides Space instance. If this block is not filled, Space connection will be taken from the build trigger or checkout settings.
+            Overrides JetBrains Space instance. If this block is not filled, JetBrains Space connection will be taken from the build trigger or checkout settings.
         </f:description>
 
         <f:entry title="Connection" field="spaceConnection">
@@ -30,7 +30,7 @@
         <j:set var="it" value="${instance.customRevision}"/>
 
         <f:description>
-            Override Git branch and revision to report build status for.
+            Override git branch and revision to report build status for.
             If this block is not filled, git branch and revision that have been checked out from git will be used.
         </f:description>
 

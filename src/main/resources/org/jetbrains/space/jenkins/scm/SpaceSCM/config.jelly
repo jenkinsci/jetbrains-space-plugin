@@ -6,10 +6,10 @@
     </f:entry>
 
     <f:description>
-        If not specified, Space repository to checkout code from will be taken from the build trigger settings.
+        If not specified, JetBrains Space repository to checkout code from will be taken from the build trigger settings.
     </f:description>
 
-    <f:optionalBlock title="Specify Space repository" field="customSpaceConnection" checked="${instance.customSpaceConnection != null}">
+    <f:optionalBlock title="Specify JetBrains Space repository" field="customSpaceConnection" checked="${instance.customSpaceConnection != null}">
         <j:set var="it" value="${instance.customSpaceConnection}"/>
 
         <f:entry title="Connection" field="spaceConnection">
@@ -40,7 +40,7 @@
     </j:if>
 
     <j:if test="${!descriptor.extensionDescriptors.isEmpty()}">
-        <f:entry title="Additional Behaviours">
+        <f:entry title="Additional behaviours">
             <f:repeatableHeteroProperty field="extensions" addCaption="Add" hasHeader="true" />
         </f:entry>
     </j:if>
