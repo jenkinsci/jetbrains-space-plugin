@@ -4,6 +4,9 @@ import hudson.EnvVars
 import hudson.model.EnvironmentContributingAction
 import hudson.model.Run
 import org.jetbrains.space.jenkins.Env
+import org.jetbrains.space.jenkins.config.SPACE_LOGO_ICON
+import org.jetbrains.space.jenkins.trigger.TriggerCause
+import java.net.URLEncoder
 
 /**
  * An implementation of [hudson.model.Action] that is stored in build run metadata
@@ -18,14 +21,26 @@ class SpaceGitScmCheckoutAction(
     val branch: String,
     val revision: String,
     val postBuildStatusToSpace: Boolean,
-    val gitScmEnv: Map<String, String>
+    val gitScmEnv: Map<String, String>,
+    val cause: TriggerCause?
 ) : EnvironmentContributingAction {
 
-    override fun getIconFileName() = null
+    override fun getIconFileName() = SPACE_LOGO_ICON
 
-    override fun getDisplayName() = "Checkout sources from JetBrains Space"
+    override fun getDisplayName() =
+        if (cause is TriggerCause.MergeRequest)
+            "Merge Request in JetBrains Space"
+        else
+            "Commits in JetBrains Space"
 
-    override fun getUrlName() = null
+
+    override fun getUrlName() =
+        if (cause is TriggerCause.MergeRequest)
+            "$spaceUrl/p/$projectKey/reviews/${cause.number}/timeline"
+        else {
+            val query = URLEncoder.encode("head:" + revision, Charsets.UTF_8)
+            "$spaceUrl/p/$projectKey/repositories/$repositoryName/commits?query=$query&commits=$revision"
+        }
 
     override fun buildEnvironment(run: Run<*, *>, env: EnvVars) {
         env[Env.SPACE_URL] = spaceUrl

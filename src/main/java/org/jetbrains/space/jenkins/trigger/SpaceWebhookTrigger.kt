@@ -42,7 +42,7 @@ fun SpaceWebhookTrigger.ensureAndGetSpaceWebhookId(): String? {
                     spaceApiClient.getRegisteredWebhooks().filter { it.webhook.name.startsWith("GEN|$id") }
                 val webhookName = getSpaceWebhookName(projectKey, repositoryName, id)
                 existingWebhooks
-                    .filter { it.webhook.name != webhookName }
+                    .filter { it.webhook.name != webhookName || triggerType == SpaceWebhookTriggerType.OnlySafeMerge }
                     .forEach {
                         spaceApiClient.applications.webhooks.deleteWebhook(
                             ApplicationIdentifier.Me,

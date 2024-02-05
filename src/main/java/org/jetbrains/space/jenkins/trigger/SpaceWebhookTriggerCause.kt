@@ -78,18 +78,21 @@ sealed interface TriggerCause {
         val url: String,
         val safeMerge: TriggerCauseSafeMerge? = null
     ): TriggerCause {
+        override val commitId = safeMerge?.safeMergeCommit
+
         override val branchForCheckout =
             safeMerge?.safeMergeBranch ?: sourceBranch ?: error("source branch for the merge request not specified")
     }
 
     class BranchPush(
         val head: String,
-        val commitId: String,
+        override val commitId: String,
         val url: String
     ): TriggerCause {
         override val branchForCheckout = head
     }
 
+    val commitId: String?
     val branchForCheckout: String
 }
 

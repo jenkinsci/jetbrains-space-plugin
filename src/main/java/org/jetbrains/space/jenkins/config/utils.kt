@@ -62,10 +62,19 @@ fun SpaceConnection.getUserRemoteConfig(projectKey: String, repositoryName: Stri
                 sshUrl()
             }
         }
+        val refspec = triggerCause?.cause?.branchForCheckout?.let {
+            val remote = it
+            val local = if (it.startsWith("refs/heads/"))
+                "refs/remotes/$repositoryName/${it.removePrefix("refs/heads/")}"
+            else
+                it
+            "+$remote:$local"
+        }
+
         return UserRemoteConfig(
             if (sshCredentialId.isBlank()) repoUrls.httpUrl else repoUrls.sshUrl,
             repositoryName,
-            triggerCause?.cause?.branchForCheckout?.let { "+$it:$it" },
+            refspec,
             sshCredentialId.ifBlank { apiCredentialId }
         )
     }
@@ -94,5 +103,7 @@ fun SpacePluginConfiguration.getConnectionByIdOrName(id: String?, name: String?)
             null
     }
 }
+
+const val SPACE_LOGO_ICON = "icon-space-logo"
 
 private val LOGGER = Logger.getLogger(SpacePluginConfiguration::class.java.name)

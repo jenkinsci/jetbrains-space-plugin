@@ -240,6 +240,7 @@ private fun getTriggeredBuildCause(trigger: SpaceWebhookTrigger, event: WebhookE
                 return WebhookEventResult.UnexpectedEvent
             }
 
+            val commitsQuery = URLEncoder.encode("head:" + event.head, Charsets.UTF_8)
             WebhookEventResult.RunBuild(
                 SpaceWebhookTriggerCause(
                     spaceConnectionId = spaceConnection.id,
@@ -250,7 +251,7 @@ private fun getTriggeredBuildCause(trigger: SpaceWebhookTrigger, event: WebhookE
                     cause = TriggerCause.BranchPush(
                         head = event.head,
                         commitId = event.newCommitId!!,
-                        url = "${spaceConnection.baseUrl}/p/${event.projectKey.key}/repositories/${event.repository}/commits?query=${URLEncoder.encode("head:" + event.head, Charsets.UTF_8)}"
+                        url = "${spaceConnection.baseUrl}/p/${event.projectKey.key}/repositories/${event.repository}/commits?query=$commitsQuery"
                     )
                 )
             )

@@ -2,6 +2,9 @@ package org.jetbrains.space.jenkins.config;
 
 import hudson.Extension;
 import jenkins.model.GlobalConfiguration;
+import org.jenkins.ui.icon.Icon;
+import org.jenkins.ui.icon.IconSet;
+import org.jenkins.ui.icon.IconType;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
@@ -30,5 +33,14 @@ public class SpacePluginConfiguration extends GlobalConfiguration {
     public void setConnections(List<SpaceConnection> connections) {
         this.connections = connections;
         save();
+    }
+
+    static {
+        IconSet.icons.addIcon(
+                new Icon(
+                        UtilsKt.SPACE_LOGO_ICON + " icon-md",
+                        "/plugin/jetbrains-space/space-logo.png",
+                        Icon.ICON_MEDIUM_STYLE,
+                        IconType.PLUGIN));
     }
 }

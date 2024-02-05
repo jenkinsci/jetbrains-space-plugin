@@ -35,7 +35,6 @@ Licensed under MIT, see [LICENSE](LICENSE.md)
   - [Posting a message to the merge request timeline in Space](#posting-a-message-to-the-merge-request-timeline-in-space)
   - [Calling Space HTTP API from pipeline script](#calling-space-http-api-from-pipeline-script)
   - [Environment variables](#environment-variables)
-- [Integrating Jenkins with JetBrains Space without installing the Jenkins plugin](#integrating-jenkins-with-jetbrains-space-without-installing-the-jenkins-plugin)
 - [Contributing](#contributing)
 
 ## Configuration
@@ -76,7 +75,7 @@ You'll need to provide them to Jenkins as well when setting up the integration o
 Install this plugin to your Jenkins instance. This is done via the **Jenkins > Manage Jenkins > Manage Plugins** menu in Jenkins.
 
 **Note that even though using the plugin is highly recommended, as it significantly simplifies integration, it is still possible to integrate Jenkins with Space without installing the plugin.
-See [this section](#integrating-jenkins-with-jetbrains-space-without-installing-the-jenkins-plugin) for more details.**
+See [this document](docs/integration-without-plugin.md) for more details.**
 
 For establishing a connection with JetBrains Space, we will need to add the Space API credentials and SSH key to Jenkins. 
 Go to **Jenkins > Manage Jenkins > Credentials** page, pick a domain to add credentials to (choose **System > Global credentials (unrestricted)** if in doubt) and add two credentials instances there.
@@ -172,7 +171,7 @@ checkout SpaceGit(projectKey: 'PRJ', branches: [[name: 'refs/heads/feature-*']],
 ```
 
 All the parameters in the scripted form described above are optional. However, the parameters *spaceConnection*, *projectKey* and *repository* are bundled and should be either all present or all omitted.
-You can use a Jenkins pipeline syntax generator to pick the **checkout** step, choose the **JetBrains Space** source, configure all the parameters in the UI
+You can use the Jenkins pipeline syntax generator to pick the **checkout** step, choose the **JetBrains Space** source, configure all the parameters in the UI
 and then generate a script for calling this step with the parameters configured.
 
 There is also an option to check out sources from Space git repository by using a standard Git SCM and providing the git repo clone URL and SSH key or HTTP password in place.
@@ -278,13 +277,6 @@ When a build is triggered by a Space merge request, those variables are also pro
 * `SAFE_MERGE_STARTED_BY_USER_ID` - id of Space user that has started the safe merge; absent if build is not triggered by safe merge.
 
 All the environment variables provided by the standard Git plugin (https://plugins.jenkins.io/git/#plugin-content-environment-variables) are also available when checking out source code using Space SCM.
-
-## Integrating Jenkins with JetBrains Space without installing the Jenkins plugin
-
-Installing this plugin to Jenkins is the recommended way to integrate Jenkins with JetBrains Space. If installing the plugin is not possible for some reason,
-there is still a possibility to set up the integration, although it would be limited and less convenient to use.
-
- [See more details and an example of the safe merge setup without the Jenkins plugin](docs/integration-without-plugin.md).
 
 ## Contributing
 

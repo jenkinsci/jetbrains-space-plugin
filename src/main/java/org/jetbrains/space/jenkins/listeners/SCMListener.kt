@@ -3,6 +3,7 @@ package org.jetbrains.space.jenkins.listeners
 import hudson.model.*
 import hudson.plugins.git.BranchSpec
 import hudson.plugins.git.GitSCM
+import hudson.plugins.git.RevisionParameterAction
 import hudson.scm.SCM
 import io.ktor.http.*
 import kotlinx.coroutines.runBlocking
@@ -10,7 +11,6 @@ import org.jetbrains.space.jenkins.config.*
 import org.jetbrains.space.jenkins.scm.*
 import org.jetbrains.space.jenkins.steps.PostBuildStatusAction
 import org.jetbrains.space.jenkins.trigger.SpaceWebhookTriggerCause
-import org.jetbrains.space.jenkins.trigger.SpaceWebhookTriggerType
 import space.jetbrains.api.runtime.SpaceClient
 import space.jetbrains.api.runtime.resources.projects
 import space.jetbrains.api.runtime.types.CommitExecutionStatus
@@ -33,9 +33,10 @@ fun onScmCheckout(build: Run<*, *>, scm: SCM, listener: TaskListener, spacePlugi
     val gitScmEnv = mutableMapOf<String, String>()
     underlyingGitScm.buildEnvironment(build, gitScmEnv)
 
+    val triggerCause = build.getCause(SpaceWebhookTriggerCause::class.java)
+
     val space = when {
         scm is SpaceSCM -> {
-            val triggerCause = build.getCause(SpaceWebhookTriggerCause::class.java)
             spacePluginConfiguration.getSpaceGitCheckoutParams(scm, build.parent, triggerCause).first
         }
 
@@ -49,22 +50,27 @@ fun onScmCheckout(build: Run<*, *>, scm: SCM, listener: TaskListener, spacePlugi
         return
     }
 
-    val revisionAction = SpaceGitScmCheckoutAction(
+    val spaceGitCheckoutAction = SpaceGitScmCheckoutAction(
         spaceConnectionId = space.connection.id,
         spaceUrl = space.connection.baseUrl,
         projectKey = space.projectKey,
         repositoryName = space.repositoryName,
-        branch = gitScmEnv[GitSCM.GIT_BRANCH].orEmpty(),
+        branch = triggerCause?.cause?.branchForCheckout ?: gitScmEnv[GitSCM.GIT_BRANCH].orEmpty(),
         revision = gitScmEnv[GitSCM.GIT_COMMIT]!!,
         postBuildStatusToSpace = (scm as? SpaceSCM)?.postBuildStatusToSpace ?: false,
-        gitScmEnv
+        gitScmEnv = gitScmEnv,
+        cause = triggerCause?.cause
     )
-    build.addAction(revisionAction)
+    build.addAction(spaceGitCheckoutAction)
 
-    if (revisionAction.postBuildStatusToSpace) {
+    triggerCause?.cause?.let {
+        build.addAction(RevisionParameterAction(it.commitId))
+    }
+
+    if (spaceGitCheckoutAction.postBuildStatusToSpace) {
         try {
             runBlocking {
-                space.connection.getApiClient().postBuildStatus(revisionAction, build)
+                space.connection.getApiClient().postBuildStatus(spaceGitCheckoutAction, build)
             }
         } catch (ex: Throwable) {
             val message = "Failed to post build status to JetBrains Space, details: $ex"
