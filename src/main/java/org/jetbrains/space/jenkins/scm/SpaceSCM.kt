@@ -32,7 +32,7 @@ fun initializeGitScm(scm: SpaceSCM, job: Job<*, *>, build: Run<*, *>?, spacePlug
     val triggerCause = build?.getCause(SpaceWebhookTriggerCause::class.java)
     val (space, branches) = spacePluginConfiguration.getSpaceGitCheckoutParams(scm, job, triggerCause)
     try {
-        val remoteConfig = space.connection.getUserRemoteConfig(space.projectKey, space.repositoryName, triggerCause)
+        val remoteConfig = space.connection.getUserRemoteConfig(space.projectKey, space.repositoryName, branches)
         val repoBrowser = SpaceRepositoryBrowser(space.connection, space.projectKey, space.repositoryName)
         return GitSCM(listOf(remoteConfig), branches, repoBrowser, scm.gitTool, scm.extensions)
     } catch (ex: Throwable) {

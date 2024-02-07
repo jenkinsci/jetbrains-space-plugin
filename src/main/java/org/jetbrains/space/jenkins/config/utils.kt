@@ -3,6 +3,7 @@ package org.jetbrains.space.jenkins.config
 import com.cloudbees.plugins.credentials.CredentialsMatchers
 import com.cloudbees.plugins.credentials.CredentialsProvider
 import com.cloudbees.plugins.credentials.domains.URIRequirementBuilder
+import hudson.plugins.git.BranchSpec
 import hudson.plugins.git.UserRemoteConfig
 import hudson.security.ACL
 import io.ktor.http.*
@@ -54,7 +55,7 @@ fun SpaceConnection.getApiClient(): SpaceClient {
     return SpaceClient(appInstance, SpaceAuth.ClientCredentials())
 }
 
-fun SpaceConnection.getUserRemoteConfig(projectKey: String, repositoryName: String, triggerCause: SpaceWebhookTriggerCause?): UserRemoteConfig {
+fun SpaceConnection.getUserRemoteConfig(projectKey: String, repositoryName: String, branches: List<BranchSpec>): UserRemoteConfig {
     getApiClient().use { spaceApiClient ->
         val repoUrls = runBlocking {
             spaceApiClient.projects.repositories.url(ProjectIdentifier.Key(projectKey), repositoryName) {
@@ -62,14 +63,14 @@ fun SpaceConnection.getUserRemoteConfig(projectKey: String, repositoryName: Stri
                 sshUrl()
             }
         }
-        val refspec = triggerCause?.cause?.branchForCheckout?.let {
-            val remote = it
-            val local = if (it.startsWith("refs/heads/"))
-                "refs/remotes/$repositoryName/${it.removePrefix("refs/heads/")}"
+        val refspec = branches.map {
+            val remote = it.name
+            val local = if (remote.startsWith("refs/heads/"))
+                "refs/remotes/$repositoryName/${remote.removePrefix("refs/heads/")}"
             else
                 it
             "+$remote:$local"
-        }
+        }.joinToString(" ")
 
         return UserRemoteConfig(
             if (sshCredentialId.isBlank()) repoUrls.httpUrl else repoUrls.sshUrl,

@@ -149,10 +149,12 @@ fun SpacePluginConfiguration.getSpaceGitCheckoutParams(scm: SpaceSCM, job: Job<*
                 projectKey = customSpaceConnection.projectKey,
                 repositoryName = customSpaceConnection.repository
             )
-            val branches = triggerCause?.cause?.let { listOf(BranchSpec(it.branchForCheckout)) }
-                ?: customSpaceConnection.branches.takeUnless { it.isNullOrEmpty() }
-                ?: listOf(BranchSpec("refs/heads/*"))
-            params to branches
+            val branchesFromTrigger = triggerCause
+                ?.takeIf { it.projectKey == customSpaceConnection.projectKey && it.repositoryName == customSpaceConnection.repository }
+                ?.let { listOf(BranchSpec(it.cause.branchForCheckout)) }
+                .orEmpty()
+            val branches = customSpaceConnection.branches.orEmpty() + branchesFromTrigger
+            params to (branches.takeUnless { it.isEmpty() } ?: listOf(BranchSpec("refs/heads/*")))
         }
 
         spaceWebhookTrigger != null -> {
