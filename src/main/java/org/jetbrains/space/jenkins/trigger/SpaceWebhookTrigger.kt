@@ -107,7 +107,7 @@ private suspend fun SpaceWebhookTrigger.createSubscription(projectKey: String, r
                         messageRegex = ""
                     )
                 )),
-                eventTypeCodes = listOf("Repository.Push")
+                eventTypeCodes = listOf("Repository.Push.BranchCreated", "Repository.Push.BranchUpdated")
             )
         SpaceWebhookTriggerType.OnlySafeMerge ->
             null
