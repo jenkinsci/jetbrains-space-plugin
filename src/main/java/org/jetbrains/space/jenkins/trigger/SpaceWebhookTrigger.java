@@ -139,7 +139,7 @@ public class SpaceWebhookTrigger extends Trigger<Job<?, ?>> {
         if (id == null || (!newInstance && spaceWebhookId != null))
             return;
 
-        ensureSpaceWebhook();
+        ensureSpaceWebhook(project.getFullDisplayName());
     }
 
     /**
@@ -149,8 +149,8 @@ public class SpaceWebhookTrigger extends Trigger<Job<?, ?>> {
      *
      * <p>Handling of the incoming webhook event is handled by the {@link SpaceWebhookEndpoint} class.</p>
      */
-    public void ensureSpaceWebhook() {
-        this.spaceWebhookId = SpaceWebhookTriggerKt.ensureAndGetSpaceWebhookId(this);
+    public void ensureSpaceWebhook(String jenkinsProjectName) {
+        this.spaceWebhookId = SpaceWebhookTriggerKt.ensureAndGetSpaceWebhookId(this, jenkinsProjectName);
     }
 
     @SuppressWarnings("unused")

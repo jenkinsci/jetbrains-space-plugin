@@ -88,7 +88,7 @@ private suspend fun ProcessingScope.processWebhookCallback(payload: WebhookReque
                 ?.let { allJobs.findByTriggerId(it) }
                 .also {
                     if (it != null) {
-                        it.second.ensureSpaceWebhook()
+                        it.second.ensureSpaceWebhook(it.first.fullDisplayName)
                     } else {
                         LOGGER.warning("Trigger found for webhook id = ${payload.webhookId} found by fallback to webhook name")
                     }
@@ -121,7 +121,7 @@ private suspend fun ProcessingScope.processWebhookCallback(payload: WebhookReque
         }
 
         is WebhookEventResult.UnexpectedEvent -> {
-            trigger.ensureSpaceWebhook()
+            trigger.ensureSpaceWebhook(job.fullDisplayName)
             SpaceHttpResponse.RespondWithCode(HttpStatusCode.BadRequest)
         }
 
