@@ -251,7 +251,7 @@ private sealed class GetQueueItemOrBuildResult {
  * Build identifiers used in communication with Space are strings composed from a prefix
  * designating whether it's a build or a queue item, and the actual build or queue item integer id.
  */
-private object BuildIdPrefix {
+object BuildIdPrefix {
     const val QUEUE_ITEM = "queue-item-"
     const val BUILD = "build-"
 }

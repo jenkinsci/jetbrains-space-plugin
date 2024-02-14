@@ -10,6 +10,7 @@ import kotlinx.coroutines.runBlocking
 import org.jetbrains.space.jenkins.config.*
 import org.jetbrains.space.jenkins.scm.*
 import org.jetbrains.space.jenkins.steps.PostBuildStatusAction
+import org.jetbrains.space.jenkins.trigger.BuildIdPrefix
 import org.jetbrains.space.jenkins.trigger.SpaceWebhookTriggerCause
 import space.jetbrains.api.runtime.SpaceClient
 import space.jetbrains.api.runtime.resources.projects
@@ -229,7 +230,7 @@ private suspend fun SpaceClient.postBuildStatus(action: SpaceGitScmCheckoutActio
         externalServiceName = "Jenkins",
         taskName = build.parent.fullName,
         taskId = build.parent.fullName,
-        taskBuildId = build.getNumber().toString(),
+        taskBuildId = BuildIdPrefix.BUILD + build.getNumber().toString(),
         timestamp = build.startTimeInMillis,
         description = build.description
     )
