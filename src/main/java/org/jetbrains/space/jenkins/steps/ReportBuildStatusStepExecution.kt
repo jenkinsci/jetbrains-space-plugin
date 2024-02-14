@@ -13,6 +13,7 @@ import org.jetbrains.space.jenkins.config.getApiClient
 import org.jetbrains.space.jenkins.config.getConnectionById
 import org.jetbrains.space.jenkins.config.getConnectionByIdOrName
 import org.jetbrains.space.jenkins.listeners.SpaceGitScmCheckoutAction
+import org.jetbrains.space.jenkins.trigger.BuildIdPrefix
 import org.jetbrains.space.jenkins.trigger.SpaceWebhookTriggerCause
 import space.jetbrains.api.runtime.resources.projects
 import space.jetbrains.api.runtime.types.CommitExecutionStatus
@@ -164,7 +165,7 @@ class ReportBuildStatusStepExecution(
                         externalServiceName = "Jenkins",
                         taskName = taskName,
                         taskId = taskName,
-                        taskBuildId = taskBuildId,
+                        taskBuildId = BuildIdPrefix.BUILD + taskBuildId,
                         timestamp = taskBuildStartTimeInMillis,
                         description = taskBuildDescription
                     )
