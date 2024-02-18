@@ -1,49 +1,31 @@
 ### Preparing the integration
 
-Configuring the integration on the Space side is exactly the same as with the Jenkins plugin. Please refer to the [corresponding instructions](../README.md#enable-jenkins-integration-in-space) for completing this step.
+Configuring the integration on the Space side is almost the same as with the Jenkins plugin installed.
+Please refer to the [corresponding instructions](../README.md#enable-jenkins-integration-in-space) for completing this step.
+There are just a couple of differences to this process.
 
-The only difference is that you will also need a permanent token for Jenkins to to report external status checks to Space.
-While setting up an application in Space, go to the **Permanent Tokens** tab and create a new permanent token there.
-Copy the token, you’ll need to provide it later when setting up the integration on the Jenkins side.
+First, you will need to uncheck the **JetBrains Space plugin installed in Jenkins** checkbox when setting up Jenkins integration in JetBrains Space.
+After doing that you will be requested with the Jenkins username and API token. Those are needed by Space to trigger builds in Jenkins, and all the builds triggered
+by the integration will be seen by Jenkins as triggered on behalf of this user. To generate this token in Jenkins, go to your personal profile settings,
+find the **API tokens** section and create a new token. Then return to Jenkins integration management page in JetBrains Space,
+click the **Specify user** button and provide your Jenkins user name and the API token that you've just created.
 
-**TODO There will be a small difference on the Space side as well as soon as we implement simplified Jenkins integration management (checkbox "no Jenkins plugin", persistent token generation), so will need to document it.**
+Jenkins pipelines need tp authenticate requests to JetBrains Space to report build statuses, and the way this authentication happens is different when Jenkins plugin is not installed.
+In this case it is more convenient to use a permanent token rather that client id and secret pair.
+After checking off the **JetBrains Space plugin installed in Jenkins** checkbox, the **Space API Credentials** will allow you to manage permanent tokens
+instead of providing client id and secret pair. Create a new permanent token here and copy the displayed token - you will need to save it to Jenkins.
+![Configuring integration on Space side without Jenkins plugin](images/no-plugin.png)
 
-On the Jenkins side, proceed as follows:
-* Add a Space API token to credentials in Jenkins. Navigate to **Manage Jenkins > Credentials**, pick a domain to add credentials to
-  (choose **System > Global credentials (unrestricted)** if in doubt) and add a new credential there. Choose the type **Secret text** and paste the permanent token generated on the Space side into the **Secret** field.
-* Generate an access token for Space to trigger a build in Jenkins.
-  Go to your personal profile settings in Jenkins, find the **API tokens** section and create a new token.
-  Copy the provided token. You’ll need it later when setting up Jenkins integration for a specific project in Space.
-  Make sure you have the permissions to trigger the necessary builds in Jenkins, otherwise Space won’t be able to trigger them using your token as well.
+To add the permanent token credential to Jenkins, navigate to **Manage Jenkins > Credentials**, pick a domain to add credentials to
+(choose **System > Global credentials (unrestricted)** if in doubt) and add a new credential there.
+Choose the type **Secret text** and paste the permanent token generated on the Space side into the **Secret** field.
 
 ### Safe merge setup example
 
-On the Space side:
-* Add a project secret for storing the Jenkins api token. Navigate to the project settings in Space, go to the **Secrets & parameters** tab
-  and click **Create > Secret**. Specify the name for the secret (the next step assumes that you name it *jenkins-token*) and the value,
-  which is the personal API token you’ve created in Jenkins earlier.
-* Set up safe merge using Jenkins in git repository. In your git repository in Space, create a `safe-merge.json` file and specify Jenkins URL, job or pipeline name, and credentials there.
-  If your Jenkins job is nested within a folder, property specify the path to the job using a slash as the separator for the **project** (like *Folder/SubFolder/Job*).
-  Space will then trigger a build of this Jenkins job whenever a safe merge or dry run is invoked for a merge request in Space,
-  passing the branch name and revision id as “GIT_BRANCH” and GIT_COMMIT parameters.
+Setting up safe merge for Space git repository is the same regardless of whether the plugin is installed in Jenkins.
+Refer to [corresponding section](../README.md#using-jenkins-builds-for-safe-merge) to configure safe merge in JetBrains Space. 
 
-```json
-{
-    "version": "1.0",
-    "builds": [
-        {
-            "jenkins": {
-                "project": "Folder/Pipeline",
-                "url": "https://jenkins.mycompany.com",
-                "userName": "user",
-                "apiToken": "${jenkins-token}"
-            }
-        }
-    ]
-}
-```
-
-On the Jenkins side:
+On the Jenkins side however, the process is much more complicated than with the plugin installed. Do the following to prepare your Jenkins pipeline to be used for safe merge:
 * Add the **GIT_BRANCH** parameter of type `string` to your pipeline. They will be passed from Space when triggering a build in Jenkins.
 * Set up posting external commit check results as part of your Jenkins pipeline. Take the following code snippet as an example:
 

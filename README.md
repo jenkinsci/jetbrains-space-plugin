@@ -43,32 +43,31 @@ There are two main steps to configuring this integration. The initial setup is d
 
 ### Enable Jenkins integration in Space
 
-**TODO: This section describes the current installation process on Space side, we will simplify it by hiding a concept of application from the user.
-Will need to rewrite this section after we implement the simplified integrations management UI on Space side.**
+Jenkins integration can be enabled on the **Featured Integrations** page of the **Administration** section in JetBrains Space.
+Navigate to this page and click the **Enable** button for Jenkins integration. In the opened dialog, enter Jenkins URL 
+and choose Space projects containing git repositories that you want to build with Jenkins. After pressing the **Save** button,
+you will be presented with the Jenkins integration settings page. You can also open this page any time by pressing the **Manage** button
+for Jenkins integration on the **Featured Integrations** page.
 
-**Create an application**. On the main menu, navigate to **Extensions > Installed**, click **New application** and enter the name for the application (for example, ”Jenkins”).
+The Jenkins integration management page allows you to later modify both Jenkins URL and the list of Space projects.
+For each of the projects you can also customize permissions granted to Jenkins integration in Space. You might need it 
+to invoke Space API methods from your Jenkins pipeline scripts as described in [Calling Space HTTP API from pipeline script](#calling-space-http-api-from-pipeline-script).
+You can also revoke all the permissions and disable Jenkins integration for a given project by clicking the cross button next to this project. 
+Enabling Jenkins integration for a new project is done via the **Authorize in project** button.
+If you don’t have the administrator rights in those projects, you’ll also have to wait for the project administrator to approve permission request for the Jenkins integration.
+![Authorized Space projects](docs/images/space-projects.png)
 
-**Configure permissions for the new application**. Go to the **Authorization** tab to authorize the application in Space projects, press
-**Configure requirements** button in the **In-context Authorization** section and enable the following permissions:
-  * Report external status checks
-  * Read Git repositories
-  * Write Git repositories *(if your Jenkins jobs will push tags or branches to git)*
-  * Post comments to code reviews *(if your Jenkins jobs will post messages to a merge request timeline in Space)*
+Below the projects section of this page, there are two sections for authenticating Jenkins requests to Space.
+The first one contains **Client ID** and **Client secret** values used to authenticate requests to Space HTTP API from Jenkins.
+You'll need to provide them when setting up the integration on Jenkins side.
+The second credentials section allows you to manage git SSH keys associated with the Jenkins integration. Jenkins uses those keys to check out source code
+from git repositories hosted by JetBrains Space. You need upload a public SSH key to Space on this page and then provide the corresponding private key to Jenkins
+when setting up the integration on the Jenkins side.
 
-Save changes after selecting all the required permissions.
-
-Press the **Authorize in project** button in the same section, pick the project you want Jenkins to link with and press **Authorize** button in the popup.
-If you want to use Jenkins integration in multiple Space projects, repeat this for each project.
-If you don’t have the administrator rights in those projects, you’ll also have to wait for the project administrator to approve a permission request for your application.
-Alternatively, you can grant these permissions to Jenkins integration globally, for all projects. Do this via the **Configure** button in the **Global authorization** section on the same page.
-
-Go to the **Git Keys** tab and upload a new public SSH key that Jenkins will use to pull code from the Space git repository and optionally to push changes to it.
-You'll need to provide the corresponding private key to Jenkins when setting up the integration on the Jenkins side.
-
-Go to the **Endpoint** tab and specify Jenkins URL with `/jb-space/process` appended to it as an application endpoint.
-
-Go to the **Authentication** tab and find the **Client ID** and **Client secret** values there. Those are the credentials used to access the Space HTTP API.
-You'll need to provide them to Jenkins as well when setting up the integration on the Jenkins side.
+There might be a case when you can't install this plugin to Jenkins, but still want to integrate Jenkins with JetBrains Space.
+This is possible, although the configuration and usage process for such setup is less straightforward. In this case, make sure to uncheck
+the **JetBrains Space plugin installed in Jenkins** checkbox on Jenkins integration management page in JetBrains Space.
+See [this document](docs/integration-without-plugin.md) for more details.
 
 ### Configure Space integration in Jenkins
 
