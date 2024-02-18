@@ -232,7 +232,8 @@ fun Run<*, *>.toJenkinsBuild() =
         getFullDisplayName(),
         isInProgress(),
         getDuration(),
-        getResult()?.toString()
+        getResult()?.toString(),
+        getQueueId()
     )
 
 /**
