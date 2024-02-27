@@ -29,16 +29,7 @@ class SpaceWebhookTriggerCause(
                 projectKey = mergeRequest.project.key,
                 repositoryName = mergeRequest.branchPairs.firstOrNull()?.repository.orEmpty(),
                 triggerType = SpaceWebhookTriggerType.MergeRequests,
-                cause = TriggerCause.MergeRequest(
-                    projectKey = mergeRequest.project.key,
-                    id = mergeRequest.id,
-                    number = mergeRequest.number,
-                    title = mergeRequest.title,
-                    sourceBranch = mergeRequest.branchPairs.firstOrNull()?.sourceBranchInfo?.head,
-                    targetBranch = mergeRequest.branchPairs.firstOrNull()?.targetBranchInfo?.head,
-                    url = "${spaceConnection.baseUrl}/p/${mergeRequest.project.key}/reviews/${mergeRequest.number}",
-                    safeMerge = safeMerge
-                )
+                cause = TriggerCause.fromMergeRequest(mergeRequest, spaceConnection, safeMerge)
             )
     }
 
@@ -68,6 +59,20 @@ class SpaceWebhookTriggerCause(
  * Contains data specific for each type of the triggering event - either git branch push or merge request update or safe merge
  */
 sealed interface TriggerCause {
+    companion object {
+        fun fromMergeRequest(mergeRequest: MergeRequestRecord, spaceConnection: SpaceConnection, safeMerge: TriggerCauseSafeMerge? = null) =
+            TriggerCause.MergeRequest(
+                projectKey = mergeRequest.project.key,
+                id = mergeRequest.id,
+                number = mergeRequest.number,
+                title = mergeRequest.title,
+                sourceBranch = mergeRequest.branchPairs.firstOrNull()?.sourceBranchInfo?.head,
+                targetBranch = mergeRequest.branchPairs.firstOrNull()?.targetBranchInfo?.head,
+                url = "${spaceConnection.baseUrl}/p/${mergeRequest.project.key}/reviews/${mergeRequest.number}",
+                safeMerge = safeMerge
+            )
+    }
+
     class MergeRequest(
         val projectKey: String,
         val id: String,

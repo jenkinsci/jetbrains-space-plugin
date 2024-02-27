@@ -12,10 +12,15 @@ import org.jetbrains.space.jenkins.scm.*
 import org.jetbrains.space.jenkins.steps.PostBuildStatusAction
 import org.jetbrains.space.jenkins.trigger.BuildIdPrefix
 import org.jetbrains.space.jenkins.trigger.SpaceWebhookTriggerCause
+import org.jetbrains.space.jenkins.trigger.TriggerCause
+import org.jetbrains.space.jenkins.trigger.TriggerCauseSafeMerge
 import space.jetbrains.api.runtime.SpaceClient
 import space.jetbrains.api.runtime.resources.projects
 import space.jetbrains.api.runtime.types.CommitExecutionStatus
+import space.jetbrains.api.runtime.types.MergeRequestRecord
 import space.jetbrains.api.runtime.types.ProjectIdentifier
+import space.jetbrains.api.runtime.types.ReviewIdentifier
+import space.jetbrains.api.runtime.types.partials.CodeReviewRecordPartial
 import java.util.logging.Logger
 
 /**
@@ -34,15 +39,17 @@ fun onScmCheckout(build: Run<*, *>, scm: SCM, listener: TaskListener, spacePlugi
     val gitScmEnv = mutableMapOf<String, String>()
     underlyingGitScm.buildEnvironment(build, gitScmEnv)
 
-    val triggerCause = build.getCause(SpaceWebhookTriggerCause::class.java)
-
-    val space = when {
+    val (space, forcedMergeRequest) = when {
         scm is SpaceSCM -> {
-            spacePluginConfiguration.getSpaceGitCheckoutParams(scm, build.parent, triggerCause).first
+            val (space, _, mergeRequest) = spacePluginConfiguration.getSpaceGitCheckoutParams(scm, build.parent, build)
+            space to mergeRequest
         }
 
-        gitScmEnv[GitSCM.GIT_URL] != null && gitScmEnv[GitSCM.GIT_COMMIT] != null ->
-            spacePluginConfiguration.getSpaceGitCheckoutParamsByCloneUrl(gitScmEnv[GitSCM.GIT_URL]!!)
+        gitScmEnv[GitSCM.GIT_URL] != null && gitScmEnv[GitSCM.GIT_COMMIT] != null -> {
+            spacePluginConfiguration.getSpaceGitCheckoutParamsByCloneUrl(gitScmEnv[GitSCM.GIT_URL]!!)?.let { space ->
+                space to build.getForcedMergeRequest(space)
+            }
+        }
 
         else ->
             null
@@ -51,6 +58,7 @@ fun onScmCheckout(build: Run<*, *>, scm: SCM, listener: TaskListener, spacePlugi
         return
     }
 
+    val triggerCause = build.getCause(SpaceWebhookTriggerCause::class.java)
     val spaceGitCheckoutAction = SpaceGitScmCheckoutAction(
         spaceConnectionId = space.connection.id,
         spaceUrl = space.connection.baseUrl,
@@ -60,7 +68,7 @@ fun onScmCheckout(build: Run<*, *>, scm: SCM, listener: TaskListener, spacePlugi
         revision = gitScmEnv[GitSCM.GIT_COMMIT]!!,
         postBuildStatusToSpace = (scm as? SpaceSCM)?.postBuildStatusToSpace ?: false,
         gitScmEnv = gitScmEnv,
-        cause = triggerCause?.cause
+        cause = triggerCause?.cause ?: forcedMergeRequest?.let { TriggerCause.fromMergeRequest(it, space.connection) }
     )
     build.addAction(spaceGitCheckoutAction)
 
@@ -78,6 +86,20 @@ fun onScmCheckout(build: Run<*, *>, scm: SCM, listener: TaskListener, spacePlugi
             LOGGER.warning(message)
             listener.logger.println(message)
         }
+    }
+}
+
+val mergeRequestFields: CodeReviewRecordPartial.() -> Unit = {
+    id()
+    number()
+    title()
+    project {
+        key()
+    }
+    branchPairs {
+        repository()
+        sourceBranchInfo()
+        targetBranchInfo()
     }
 }
 
@@ -138,9 +160,11 @@ class SpaceGitCheckoutParams(val connection: SpaceConnection, val projectKey: St
  *
  * @throws IllegalArgumentException If the Space connection is not specified in the source checkout settings or build trigger.
  */
-fun SpacePluginConfiguration.getSpaceGitCheckoutParams(scm: SpaceSCM, job: Job<*, *>, triggerCause: SpaceWebhookTriggerCause?): Pair<SpaceGitCheckoutParams, List<BranchSpec>> {
+fun SpacePluginConfiguration.getSpaceGitCheckoutParams(scm: SpaceSCM, job: Job<*, *>, build: Run<*, *>?): Triple<SpaceGitCheckoutParams, List<BranchSpec>, MergeRequestRecord?> {
+
     val customSpaceConnection = scm.customSpaceConnection
     val spaceWebhookTrigger = getSpaceWebhookTrigger(job)
+    val triggerCause = build?.getCause(SpaceWebhookTriggerCause::class.java)
 
     return when {
         customSpaceConnection != null -> {
@@ -150,12 +174,17 @@ fun SpacePluginConfiguration.getSpaceGitCheckoutParams(scm: SpaceSCM, job: Job<*
                 projectKey = customSpaceConnection.projectKey,
                 repositoryName = customSpaceConnection.repository
             )
+            val forcedMergeRequest = build?.getForcedMergeRequest(params)
             val branchesFromTrigger = triggerCause
                 ?.takeIf { it.projectKey == customSpaceConnection.projectKey && it.repositoryName == customSpaceConnection.repository }
                 ?.let { listOf(BranchSpec(it.cause.branchForCheckout)) }
                 .orEmpty()
-            val branches = customSpaceConnection.branches.orEmpty() + branchesFromTrigger
-            params to (branches.takeUnless { it.isEmpty() } ?: listOf(BranchSpec("refs/heads/*")))
+            val branches = forcedMergeRequest?.branchPairs?.firstOrNull()?.sourceBranchInfo?.head?.let { listOf(BranchSpec(it)) }
+                ?: build?.getForcedBranchName()?.let { listOf(BranchSpec(it)) }
+                ?: (customSpaceConnection.branches.orEmpty() + branchesFromTrigger).takeUnless { it.isEmpty() }
+                ?: listOf(BranchSpec("refs/heads/*"))
+
+            Triple(params, branches, forcedMergeRequest)
         }
 
         spaceWebhookTrigger != null -> {
@@ -165,7 +194,12 @@ fun SpacePluginConfiguration.getSpaceGitCheckoutParams(scm: SpaceSCM, job: Job<*
                 projectKey = spaceWebhookTrigger.projectKey,
                 repositoryName = spaceWebhookTrigger.repositoryName
             )
-            params to listOf(BranchSpec(triggerCause?.let { it.cause.branchForCheckout } ?: "refs/*"))
+            val forcedMergeRequest = build?.getForcedMergeRequest(params)
+            val branches = forcedMergeRequest?.branchPairs?.firstOrNull()?.sourceBranchInfo?.head?.let { listOf(BranchSpec(it)) }
+                ?: build?.getForcedBranchName()?.let { listOf(BranchSpec(it)) }
+                ?: listOf(BranchSpec(triggerCause?.let { it.cause.branchForCheckout } ?: "refs/*"))
+
+            Triple(params, branches, forcedMergeRequest)
         }
 
         else -> {

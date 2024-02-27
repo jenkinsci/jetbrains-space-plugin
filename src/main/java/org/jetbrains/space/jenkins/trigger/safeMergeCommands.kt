@@ -16,6 +16,7 @@ import org.jetbrains.space.jenkins.config.SpaceConnection
 import org.jetbrains.space.jenkins.config.SpacePluginConfiguration
 import org.jetbrains.space.jenkins.config.getApiClient
 import org.jetbrains.space.jenkins.config.getConnectionByClientId
+import org.jetbrains.space.jenkins.listeners.mergeRequestFields
 import space.jetbrains.api.ExperimentalSpaceSdkApi
 import space.jetbrains.api.runtime.helpers.ProcessingScope
 import space.jetbrains.api.runtime.helpers.RequestAdapter
@@ -63,20 +64,9 @@ suspend fun ProcessingScope.startSafeMerge(clientId: String, command: SafeMergeC
     val mergeRequest = spaceConnection.getApiClient().use {
         it.projects.codeReviews.getCodeReview(
             ProjectIdentifier.Id(command.spaceProjectId),
-            ReviewIdentifier.Id(command.mergeRequestId)
-        ) {
-            id()
-            number()
-            title()
-            project {
-                key()
-            }
-            branchPairs {
-                repository()
-                sourceBranchInfo()
-                targetBranchInfo()
-            }
-        }
+            ReviewIdentifier.Id(command.mergeRequestId),
+            mergeRequestFields
+        )
     } as MergeRequestRecord
 
     val causeAction = CauseAction(

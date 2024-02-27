@@ -11,6 +11,8 @@ import org.jetbrains.space.jenkins.Env;
 
 import java.util.Objects;
 
+import static org.jetbrains.space.jenkins.listeners.SpaceGitScmCheckoutActionKt.putMergeRequestProperties;
+
 /**
  * Contributes environment variables to a Jenkins build triggered by a Space webhook.
  * It retrieves information from the webhook cause and sets the corresponding environment variables
@@ -34,23 +36,7 @@ public class SpaceTriggerEnvironmentContributor extends EnvironmentContributor {
                     TriggerCause.MergeRequest mergeRequest = cause.getMergeRequest();
                     if (mergeRequest != null) {
                         envs.put(Env.PROJECT_KEY, mergeRequest.getProjectKey());
-                        envs.put(Env.MERGE_REQUEST_ID, mergeRequest.getId());
-                        envs.put(Env.MERGE_REQUEST_NUMBER, Integer.toString(mergeRequest.getNumber()));
-                        envs.put(Env.MERGE_REQUEST_URL, mergeRequest.getUrl());
-                        envs.put(Env.MERGE_REQUEST_TITLE, mergeRequest.getTitle());
-                        if (mergeRequest.getSourceBranch() != null) {
-                            envs.put(Env.MERGE_REQUEST_SOURCE_BRANCH, mergeRequest.getSourceBranch());
-                        }
-                        if (mergeRequest.getTargetBranch() != null) {
-                            envs.put(Env.MERGE_REQUEST_TARGET_BRANCH, mergeRequest.getTargetBranch());
-                        }
-
-                        TriggerCauseSafeMerge safeMerge = mergeRequest.getSafeMerge();
-                        if (safeMerge != null) {
-                            envs.put(Env.IS_SAFE_MERGE, Boolean.toString(true));
-                            envs.put(Env.IS_DRY_RUN, Boolean.toString(safeMerge.isDryRun()));
-                            envs.put(Env.SAFE_MERGE_STARTED_BY_USER_ID, safeMerge.getStartedByUserId());
-                        }
+                        putMergeRequestProperties(envs, mergeRequest);
                     }
                 });
     }

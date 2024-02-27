@@ -6,6 +6,7 @@ import hudson.model.Run
 import org.jetbrains.space.jenkins.Env
 import org.jetbrains.space.jenkins.config.SPACE_LOGO_ICON
 import org.jetbrains.space.jenkins.trigger.TriggerCause
+import org.jetbrains.space.jenkins.trigger.TriggerCause.MergeRequest
 import java.net.URLEncoder
 
 /**
@@ -46,6 +47,31 @@ class SpaceGitScmCheckoutAction(
         env[Env.SPACE_URL] = spaceUrl
         env[Env.PROJECT_KEY] = projectKey
         env[Env.REPOSITORY_NAME] = repositoryName
+
+        (cause as? TriggerCause.MergeRequest)?.let {
+            env.putMergeRequestProperties(it)
+        }
+
         env.putAll(this.gitScmEnv)
+    }
+}
+
+fun EnvVars.putMergeRequestProperties(mergeRequest: MergeRequest) {
+    put(Env.MERGE_REQUEST_ID, mergeRequest.id)
+    put(Env.MERGE_REQUEST_NUMBER, mergeRequest.number.toString())
+    put(Env.MERGE_REQUEST_URL, mergeRequest.url)
+    put(Env.MERGE_REQUEST_TITLE, mergeRequest.title)
+    if (mergeRequest.sourceBranch != null) {
+        put(Env.MERGE_REQUEST_SOURCE_BRANCH, mergeRequest.sourceBranch)
+    }
+    if (mergeRequest.targetBranch != null) {
+        put(Env.MERGE_REQUEST_TARGET_BRANCH, mergeRequest.targetBranch)
+    }
+
+    var safeMerge = mergeRequest.safeMerge
+    put(Env.IS_SAFE_MERGE, (safeMerge != null).toString())
+    if (safeMerge != null) {
+        put(Env.IS_DRY_RUN, safeMerge.isDryRun.toString())
+        put(Env.SAFE_MERGE_STARTED_BY_USER_ID, safeMerge.startedByUserId)
     }
 }

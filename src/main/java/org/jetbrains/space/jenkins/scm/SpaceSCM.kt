@@ -1,20 +1,31 @@
 package org.jetbrains.space.jenkins.scm
 
 import hudson.model.Job
+import hudson.model.ParametersAction
 import hudson.model.Run
+import hudson.model.StringParameterValue
 import hudson.plugins.git.BranchSpec
 import hudson.plugins.git.GitSCM
 import hudson.plugins.git.GitTool
 import hudson.plugins.git.extensions.GitSCMExtension
 import jenkins.triggers.TriggeredItem
+import kotlinx.coroutines.runBlocking
 import org.jenkinsci.plugins.structs.describable.DescribableModel
 import org.jenkinsci.plugins.structs.describable.UninstantiatedDescribable
+import org.jetbrains.space.jenkins.config.SpaceConnection
 import org.jetbrains.space.jenkins.config.SpacePluginConfiguration
+import org.jetbrains.space.jenkins.config.getApiClient
 import org.jetbrains.space.jenkins.config.getUserRemoteConfig
+import org.jetbrains.space.jenkins.listeners.SpaceGitCheckoutParams
 import org.jetbrains.space.jenkins.listeners.getSpaceGitCheckoutParams
+import org.jetbrains.space.jenkins.listeners.mergeRequestFields
 import org.jetbrains.space.jenkins.trigger.SpaceWebhookTrigger
 import org.jetbrains.space.jenkins.trigger.SpaceWebhookTriggerCause
 import org.kohsuke.stapler.DataBoundConstructor
+import space.jetbrains.api.runtime.resources.projects
+import space.jetbrains.api.runtime.types.MergeRequestRecord
+import space.jetbrains.api.runtime.types.ProjectIdentifier
+import space.jetbrains.api.runtime.types.ReviewIdentifier
 import java.util.logging.Level
 import java.util.logging.Logger
 
@@ -29,8 +40,7 @@ import java.util.logging.Logger
 fun initializeGitScm(scm: SpaceSCM, job: Job<*, *>, build: Run<*, *>?, spacePluginConfiguration: SpacePluginConfiguration): GitSCM {
     LOGGER.info("SpaceSCM.initializeGitScm")
 
-    val triggerCause = build?.getCause(SpaceWebhookTriggerCause::class.java)
-    val (space, branches) = spacePluginConfiguration.getSpaceGitCheckoutParams(scm, job, triggerCause)
+    val (space, branches, _) = spacePluginConfiguration.getSpaceGitCheckoutParams(scm, job, build)
     try {
         val remoteConfig = space.connection.getUserRemoteConfig(space.projectKey, space.repositoryName, branches)
         val repoBrowser = SpaceRepositoryBrowser(space.connection, space.projectKey, space.repositoryName)
@@ -107,6 +117,27 @@ class PlainSpaceSCM @DataBoundConstructor constructor(
             }
     }
 }
+
+fun Run<*, *>.getForcedBranchName() =
+    (getAction(ParametersAction::class.java)?.getParameter("GIT_BRANCH") as? StringParameterValue)?.value?.let {
+        if (it.startsWith("refs/")) it else "refs/heads/$it"
+    }
+
+fun Run<*, *>.getForcedMergeRequestNumber() =
+    (getAction(ParametersAction::class.java)?.getParameter("SPACE_MERGE_REQUEST_NUMBER") as? StringParameterValue)?.value?.toIntOrNull()
+
+fun Run<*, *>.getForcedMergeRequest(space: SpaceGitCheckoutParams) =
+    getForcedMergeRequestNumber()?.let { mergeRequestNumber ->
+        runBlocking {
+            space.connection.getApiClient().use {
+                it.projects.codeReviews.getCodeReview(
+                    ProjectIdentifier.Key(space.projectKey),
+                    ReviewIdentifier.Number(mergeRequestNumber),
+                    mergeRequestFields
+                )
+            } as MergeRequestRecord
+        }
+    }
 
 private fun MutableMap<String, Any?>.copyFrom(args: Map<String, Any?>, key: String, required: Boolean = true) {
     args[key]?.let { put(key, it) }

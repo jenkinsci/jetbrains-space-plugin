@@ -114,6 +114,14 @@ If a build is set to be triggered by merge request changes, there are three even
   A build will be triggered when merge request with title matching regex is created, when new commits are added to it, or when non-matching merge request title is changed so that it now matches the regex.
   Regular expression must match the entire merge request title, not just a part of it. For example, to exclude all merge requests with title starting with "WIP" from triggering builds, specify `(?!WIP).+` as a regex.
 
+You might occasionally want to trigger a Jenkins build by specifying a branch name or merge request number manually, instead of relying on the trigger.
+This is possible:
+* Make your Jenkins project parameterized (go to **Configuration** page and check the **This project is parameterised** checkbox);
+* Add **GIT_BRANCH** (if your Jenkins job is set up for triggering on branch updates) or **SPACE_MERGE_REQUEST_NUMBER** (if it is used for safe merges or triggered on merge request updates) string parameter;
+* Run the build manually specify either the git branch name or Space merge request number.
+
+The build will run as if it has been triggered by the change in corresponding branch or merge request.
+
 ### Using Jenkins builds for safe merge
 
 Safe merge is a JetBrains Space feature that lets you execute quality checks for the merge request on the merge commit before changes are actually merged into target branch.
