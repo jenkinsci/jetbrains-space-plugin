@@ -5,25 +5,28 @@ Please refer to the [corresponding instructions](../README.md#enable-jenkins-int
 There are just a couple of differences to this process.
 
 First, you will need to uncheck the **JetBrains Space plugin installed in Jenkins** checkbox when setting up Jenkins integration in JetBrains Space.
-After doing that you will be requested with the Jenkins username and API token. Those are needed by Space to trigger builds in Jenkins, and all the builds triggered
-by the integration will be seen by Jenkins as triggered on behalf of this user. To generate this token in Jenkins, go to your personal profile settings,
-find the **API tokens** section and create a new token. Then return to Jenkins integration management page in JetBrains Space,
-click the **Specify user** button and provide your Jenkins user name and the API token that you've just created.
+Next, you will be asked to provide the Jenkins username and API token which Space needs to trigger builds in Jenkins. 
+Jenkins will presume all builds triggered by the integration as triggered on behalf of this user. 
+To generate this token in Jenkins, go to your personal profile settings, find the **API tokens** section and create a new token. 
+Then return to the Jenkins integration management page in JetBrains Space, 
+click the **Specify user** button and provide your Jenkins username and the API token that you've just created.
 
-Jenkins pipelines need tp authenticate requests to JetBrains Space to report build statuses, and the way this authentication happens is different when Jenkins plugin is not installed.
-In this case it is more convenient to use a permanent token rather that client id and secret pair.
-After checking off the **JetBrains Space plugin installed in Jenkins** checkbox, the **Space API Credentials** will allow you to manage permanent tokens
-instead of providing client id and secret pair. Create a new permanent token here and copy the displayed token - you will need to save it to Jenkins.
+In order to report build statuses, Jenkins pipelines need to authenticate requests to JetBrains Space. 
+The authentication is handled differently without Jenkins plugin installed, 
+which is why it is more convenient to use a permanent token rather than a client id and secret pair.
+After you disabled the **JetBrains Space plugin installed in Jenkins** checkbox, 
+the **Space API Credentials** will allow you to manage permanent tokens instead of providing the client id and secret pair. 
+Create a new permanent token here and copy it - you will need to save it to Jenkins next.
 ![Configuring integration on Space side without Jenkins plugin](images/no-plugin.png)
 
-To add the permanent token credential to Jenkins, navigate to **Manage Jenkins > Credentials**, pick a domain to add credentials to
-(choose **System > Global credentials (unrestricted)** if in doubt) and add a new credential there.
+To add the permanent token credential to Jenkins, navigate to **Manage Jenkins > Credentials**, 
+pick a domain to add the credentials to (choose **System > Global credentials (unrestricted)** if in doubt) and add a new credential there.
 Choose the type **Secret text** and paste the permanent token generated on the Space side into the **Secret** field.
 
 ### Safe merge setup example
 
-Setting up safe merge for Space git repository is the same regardless of whether the plugin is installed in Jenkins.
-Refer to [corresponding section](../README.md#using-jenkins-builds-for-safe-merge) to configure safe merge in JetBrains Space. 
+Setting up safe merge for Space git repository is the same regardless of whether the plugin is installed in Jenkins or not.
+To configure safe merge in JetBrains Space, refer to [corresponding section](../README.md#using-jenkins-builds-for-safe-merge)
 
 On the Jenkins side however, the process is much more complicated than with the plugin installed. Do the following to prepare your Jenkins pipeline to be used for safe merge:
 * Add the **GIT_BRANCH** parameter of type `string` to your pipeline. They will be passed from Space when triggering a build in Jenkins.

@@ -50,18 +50,18 @@ you will be presented with the Jenkins integration settings page. You can also o
 for Jenkins integration on the **Featured Integrations** page.
 
 The Jenkins integration management page allows you to later modify both Jenkins URL and the list of Space projects.
-For each of the projects you can also customize permissions granted to Jenkins integration in Space. You might need it 
+For each of the projects you can also customize permissions granted to Jenkins integration in Space. You might need this page
 to invoke Space API methods from your Jenkins pipeline scripts as described in [Calling Space HTTP API from pipeline script](#calling-space-http-api-from-pipeline-script).
 You can also revoke all the permissions and disable Jenkins integration for a given project by clicking the cross button next to this project. 
 Enabling Jenkins integration for a new project is done via the **Authorize in project** button.
-If you don’t have the administrator rights in those projects, you’ll also have to wait for the project administrator to approve permission request for the Jenkins integration.
+If you don’t have the administrator rights in those projects, you’ll also have to wait for the project administrator to approve a permission request for the Jenkins integration.
 ![Authorized Space projects](docs/images/space-projects.png)
 
 Below the projects section of this page, there are two sections for authenticating Jenkins requests to Space.
 The first one contains **Client ID** and **Client secret** values used to authenticate requests to Space HTTP API from Jenkins.
-You'll need to provide them when setting up the integration on Jenkins side.
+You'll need to provide them when setting up the integration on the Jenkins side.
 The second credentials section allows you to manage git SSH keys associated with the Jenkins integration. Jenkins uses those keys to check out source code
-from git repositories hosted by JetBrains Space. You need upload a public SSH key to Space on this page and then provide the corresponding private key to Jenkins
+from git repositories hosted by JetBrains Space. You need to upload a public SSH key to Space on this page and then provide the corresponding private key to Jenkins
 when setting up the integration on the Jenkins side.
 
 There might be a case when you can't install this plugin to Jenkins, but still want to integrate Jenkins with JetBrains Space.
@@ -119,10 +119,10 @@ If a build is set to be triggered by merge request changes, there are three even
 You might occasionally want to trigger a Jenkins build by specifying a branch name or merge request number manually, instead of relying on the trigger.
 This is possible:
 * Make your Jenkins project parameterized (go to **Configuration** page and check the **This project is parameterised** checkbox);
-* Add **GIT_BRANCH** (if your Jenkins job is set up for triggering on branch updates) or **SPACE_MERGE_REQUEST_NUMBER** (if it is used for safe merges or triggered on merge request updates) string parameter;
+* Add the **GIT_BRANCH** (if your Jenkins job is set up for triggering on branch updates) or **SPACE_MERGE_REQUEST_NUMBER** (if it is used for safe merges or triggered on merge request updates) string parameter;
 * Run the build manually specify either the git branch name or Space merge request number.
 
-The build will run as if it has been triggered by the change in corresponding branch or merge request.
+The build will run as if it has been triggered by the change in the corresponding branch or merge request.
 
 ### Using Jenkins builds for safe merge
 
