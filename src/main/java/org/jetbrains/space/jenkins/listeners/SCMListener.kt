@@ -14,13 +14,11 @@ import org.jetbrains.space.jenkins.steps.PostBuildStatusAction
 import org.jetbrains.space.jenkins.trigger.BuildIdPrefix
 import org.jetbrains.space.jenkins.trigger.SpaceWebhookTriggerCause
 import org.jetbrains.space.jenkins.trigger.TriggerCause
-import org.jetbrains.space.jenkins.trigger.TriggerCauseSafeMerge
 import space.jetbrains.api.runtime.SpaceClient
 import space.jetbrains.api.runtime.resources.projects
 import space.jetbrains.api.runtime.types.CommitExecutionStatus
 import space.jetbrains.api.runtime.types.MergeRequestRecord
 import space.jetbrains.api.runtime.types.ProjectIdentifier
-import space.jetbrains.api.runtime.types.ReviewIdentifier
 import space.jetbrains.api.runtime.types.partials.CodeReviewRecordPartial
 import java.util.logging.Logger
 
@@ -59,25 +57,68 @@ fun onScmCheckout(build: Run<*, *>, scm: SCM, listener: TaskListener, spacePlugi
         return
     }
 
-    val triggerCause = build.getCause(SpaceWebhookTriggerCause::class.java)
+    val triggerCause = forcedMergeRequest
+        ?.let { TriggerCause.fromMergeRequest(it, space.connection) }
+        ?.takeIf { it.sourceBranch == gitScmEnv[GitSCM.GIT_BRANCH] }
+        ?: build.getCause(SpaceWebhookTriggerCause::class.java)
+            ?.takeIf {
+                it.spaceConnectionId == space.connection.id &&
+                        it.projectKey == space.projectKey &&
+                        it.repositoryName == space.repositoryName &&
+                        it.cause.branchForCheckout == gitScmEnv[GitSCM.GIT_BRANCH]
+            }
+            ?.cause
+
     val spaceGitCheckoutAction = SpaceGitScmCheckoutAction(
         spaceConnectionId = space.connection.id,
+        spaceConnectionName = space.connection.name,
         spaceUrl = space.connection.baseUrl,
         projectKey = space.projectKey,
         repositoryName = space.repositoryName,
-        branch = triggerCause?.cause?.branchForCheckout ?: gitScmEnv[GitSCM.GIT_BRANCH].orEmpty(),
+        branch = gitScmEnv[GitSCM.GIT_BRANCH].orEmpty(),
         revision = gitScmEnv[GitSCM.GIT_COMMIT]!!,
-        postBuildStatusToSpace = (scm as? SpaceSCM)?.postBuildStatusToSpace ?: false,
+        postBuildStatusToSpace = triggerCause != null && ((scm as? SpaceSCM)?.postBuildStatusToSpace ?: false),
         gitScmEnv = gitScmEnv,
-        cause = triggerCause?.cause ?: forcedMergeRequest?.let { TriggerCause.fromMergeRequest(it, space.connection) }
+        cause = triggerCause
     )
-    build.addAction(spaceGitCheckoutAction)
-
-    triggerCause?.cause?.let {
-        build.addAction(RevisionParameterAction(it.commitId))
+    val existingActions = build.getActions(SpaceGitScmCheckoutAction::class.java)
+    val duplicate = existingActions.firstOrNull { it.urlName == spaceGitCheckoutAction.urlName }
+    if (duplicate == null) {
+        build.addAction(spaceGitCheckoutAction)
+    } else if (!duplicate.postBuildStatusToSpace && spaceGitCheckoutAction.postBuildStatusToSpace) {
+        build.removeAction(duplicate)
+        build.addAction(spaceGitCheckoutAction)
     }
 
-    if (spaceGitCheckoutAction.postBuildStatusToSpace) {
+    if (existingActions.any()) {
+        val allActions = build.getActions(SpaceGitScmCheckoutAction::class.java)
+        val hasDistinctSpaceConnections = allActions.distinctBy { it.spaceConnectionId }.size > 1
+        build.removeActions(SpaceGitScmCheckoutAction::class.java)
+        allActions
+            .sortedBy { it.cause == null }
+            .forEach { a ->
+                build.addAction(
+                    a.copy(
+                        sourceDisplayName = listOfNotNull(
+                            a.spaceConnectionName
+                                .takeIf { hasDistinctSpaceConnections },
+                            a.projectKey
+                                .takeIf { allActions.hasDistinctProjects(a.spaceConnectionName) },
+                            a.repositoryName
+                                .takeIf { allActions.hasDistinctRepos(a.spaceConnectionName, a.projectKey) },
+                            a.branch
+                                .takeIf { allActions.hasDistinctBranches(a.spaceConnectionName, a.projectKey, a.repositoryName) }
+                        ).takeUnless { it.isEmpty() }?.joinToString(" \\ ")
+                    )
+                )
+            }
+    }
+
+    if (triggerCause != null) {
+        build.addAction(RevisionParameterAction(triggerCause.commitId))
+    }
+
+    if (spaceGitCheckoutAction.postBuildStatusToSpace && (duplicate == null || !duplicate.postBuildStatusToSpace)) {
         try {
             runBlocking {
                 space.connection.getApiClient().postBuildStatus(spaceGitCheckoutAction, build)
@@ -89,6 +130,15 @@ fun onScmCheckout(build: Run<*, *>, scm: SCM, listener: TaskListener, spacePlugi
         }
     }
 }
+
+private fun List<SpaceGitScmCheckoutAction>.hasDistinctProjects(spaceConnectionName: String) =
+    filter { it.spaceConnectionName == spaceConnectionName }.distinctBy { it.projectKey }.size > 1
+
+private fun List<SpaceGitScmCheckoutAction>.hasDistinctRepos(spaceConnectionName: String, projectKey: String) =
+    filter { it.spaceConnectionName == spaceConnectionName && it.projectKey == projectKey }.distinctBy { it.repositoryName }.size > 1
+
+private fun List<SpaceGitScmCheckoutAction>.hasDistinctBranches(spaceConnectionName: String, projectKey: String, repositoryName: String) =
+    filter { it.spaceConnectionName == spaceConnectionName && it.projectKey == projectKey && it.repositoryName == repositoryName }.distinctBy { it.branch }.size > 1
 
 val mergeRequestFields: CodeReviewRecordPartial.() -> Unit = {
     id()

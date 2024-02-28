@@ -14,8 +14,9 @@ import java.net.URLEncoder
  * and provides information about the source code checked out from Space git repository
  * and the Space-specific settings of the checkout step.
  */
-class SpaceGitScmCheckoutAction(
+data class SpaceGitScmCheckoutAction(
     val spaceConnectionId: String,
+    val spaceConnectionName: String,
     val spaceUrl: String,
     val projectKey: String,
     val repositoryName: String,
@@ -23,21 +24,22 @@ class SpaceGitScmCheckoutAction(
     val revision: String,
     val postBuildStatusToSpace: Boolean,
     val gitScmEnv: Map<String, String>,
-    val cause: TriggerCause?
+    val cause: TriggerCause?,
+    val sourceDisplayName: String? = null
 ) : EnvironmentContributingAction {
 
     override fun getIconFileName() = SPACE_LOGO_ICON
 
     override fun getDisplayName() =
         if (cause is TriggerCause.MergeRequest)
-            "Merge Request in JetBrains Space"
+            "Merge Request in " + (sourceDisplayName ?: "JetBrains Space")
         else
-            "Commits in JetBrains Space"
+            "Commits in " + (sourceDisplayName ?: "JetBrains Space")
 
 
     override fun getUrlName() =
         if (cause is TriggerCause.MergeRequest)
-            "$spaceUrl/p/$projectKey/reviews/${cause.number}/timeline"
+            cause.url
         else {
             val query = URLEncoder.encode("head:" + revision, Charsets.UTF_8)
             "$spaceUrl/p/$projectKey/repositories/$repositoryName/commits?query=$query&commits=$revision"

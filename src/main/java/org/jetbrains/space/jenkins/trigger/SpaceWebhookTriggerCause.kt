@@ -60,24 +60,28 @@ class SpaceWebhookTriggerCause(
  */
 sealed interface TriggerCause {
     companion object {
-        fun fromMergeRequest(mergeRequest: MergeRequestRecord, spaceConnection: SpaceConnection, safeMerge: TriggerCauseSafeMerge? = null) =
-            TriggerCause.MergeRequest(
+        fun fromMergeRequest(mergeRequest: MergeRequestRecord, spaceConnection: SpaceConnection, safeMerge: TriggerCauseSafeMerge? = null): MergeRequest {
+            val branchPair = mergeRequest.branchPairs.firstOrNull()
+            return TriggerCause.MergeRequest(
                 projectKey = mergeRequest.project.key,
                 id = mergeRequest.id,
                 number = mergeRequest.number,
                 title = mergeRequest.title,
-                sourceBranch = mergeRequest.branchPairs.firstOrNull()?.sourceBranchInfo?.head,
-                targetBranch = mergeRequest.branchPairs.firstOrNull()?.targetBranchInfo?.head,
+                repository = branchPair?.repository,
+                sourceBranch = branchPair?.sourceBranchInfo?.head,
+                targetBranch = branchPair?.targetBranchInfo?.head,
                 url = "${spaceConnection.baseUrl}/p/${mergeRequest.project.key}/reviews/${mergeRequest.number}",
                 safeMerge = safeMerge
             )
+        }
     }
 
-    class MergeRequest(
+    data class MergeRequest(
         val projectKey: String,
         val id: String,
         val number: Int,
         val title: String,
+        val repository: String?,
         val sourceBranch: String?,
         val targetBranch: String?,
         val url: String,
@@ -89,7 +93,7 @@ sealed interface TriggerCause {
             safeMerge?.safeMergeBranch ?: sourceBranch ?: error("source branch for the merge request not specified")
     }
 
-    class BranchPush(
+    data class BranchPush(
         val head: String,
         override val commitId: String,
         val url: String
@@ -109,7 +113,7 @@ sealed interface TriggerCause {
  * @param isDryRun Whether Space will run the build to perform the checks without actually merging source branch into target even if all checks succeed
  * @param startedByUserId Id of the Space user that initiated safe merge operation
  */
-class TriggerCauseSafeMerge(
+data class TriggerCauseSafeMerge(
     val safeMergeBranch: String,
     val safeMergeCommit: String,
     val isDryRun: Boolean,

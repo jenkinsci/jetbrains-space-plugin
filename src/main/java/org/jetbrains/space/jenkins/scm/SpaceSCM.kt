@@ -88,11 +88,18 @@ class PlainSpaceSCM @DataBoundConstructor constructor(
                 if (connectionId != null && connectionName != null)
                     throw IllegalArgumentException("$CONNECTION_ID and $CONNECTION cannot be specified at the same time")
 
-                connectionId?.let { put(CONNECTION_ID, it) }
-                connectionName?.let { put(CONNECTION, it) }
-                copyFrom(args, PROJECT_KEY)
-                copyFrom(args, REPOSITORY)
-                copyFrom(args, BRANCHES, required = false)
+                put(
+                    CUSTOM_SPACE_CONNECTION,
+                    UninstantiatedDescribable(
+                        HashMap(args).apply {
+                            connectionId?.let { put(CONNECTION_ID, it) }
+                            connectionName?.let { put(CONNECTION, it) }
+                            copyFrom(args, PROJECT_KEY)
+                            copyFrom(args, REPOSITORY)
+                            copyFrom(args, BRANCHES, required = false)
+                        }
+                    )
+                )
             } else {
                 checkParameterAbsence(args, PROJECT_KEY)
                 checkParameterAbsence(args, REPOSITORY)
@@ -135,7 +142,7 @@ fun Run<*, *>.getForcedMergeRequest(space: SpaceGitCheckoutParams) =
                     ReviewIdentifier.Number(mergeRequestNumber),
                     mergeRequestFields
                 )
-            } as MergeRequestRecord
+            } as? MergeRequestRecord
         }
     }
 
