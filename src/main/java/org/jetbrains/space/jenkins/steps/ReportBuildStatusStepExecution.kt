@@ -4,6 +4,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings
 import hudson.ExtensionList
 import hudson.model.CauseAction
 import hudson.model.Run
+import jenkins.model.Jenkins
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.jenkinsci.plugins.workflow.steps.StepContext
@@ -132,7 +133,7 @@ class ReportBuildStatusStepExecution(
             return ReportBuildStatusStepExecution(
                 action = action,
                 buildStatus = CommitExecutionStatus.valueOf(step.buildStatus),
-                buildUrl = build.absoluteUrl,
+                buildUrl = if (Jenkins.get().rootUrl != null) build.absoluteUrl else build.url,
                 taskName = build.parent.fullName,
                 taskBuildId = build.getNumber().toString(),
                 taskBuildStartTimeInMillis = build.startTimeInMillis,

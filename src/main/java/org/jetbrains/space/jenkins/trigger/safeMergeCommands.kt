@@ -217,10 +217,23 @@ private fun getQueueItemOrBuild(clientId: String, project: String, buildId: Stri
 // we do not fill executable because we know that there is no running build for this queue item,
 // otherwise we would have got it from the getQueueItemOrBuild call right away
 fun Queue.Item.toJenkinsBuild() =
-    JenkinsBuild.QueueItem(id, url, (this as? LeftItem)?.isCancelled ?: false, isStuck, why)
+    JenkinsBuild.QueueItem(
+        id,
+        if (Jenkins.get().rootUrl != null) Jenkins.get().rootUrl + url else url,
+        (this as? LeftItem)?.isCancelled ?: false,
+        isStuck,
+        why)
 
+@Suppress("DEPRECATION")
 fun Run<*, *>.toJenkinsBuild() =
-    JenkinsBuild.RunningBuild(id, getUrl(), getFullDisplayName(), isInProgress(), getDuration(), getResult()?.toString())
+    JenkinsBuild.RunningBuild(
+        id,
+        if (Jenkins.get().rootUrl != null) absoluteUrl else url,
+        getFullDisplayName(),
+        isInProgress(),
+        getDuration(),
+        getResult()?.toString()
+    )
 
 /**
  * Up-to-date information about Jenkins build that is performing safe merge operation

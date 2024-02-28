@@ -76,6 +76,8 @@ Install this plugin to your Jenkins instance. This is done via the **Jenkins > M
 **Note that even though using the plugin is highly recommended, as it significantly simplifies integration, it is still possible to integrate Jenkins with Space without installing the plugin.
 See [this document](docs/integration-without-plugin.md) for more details.**
 
+Make sure that you have the Jenkins URL configured in Jenkins itself - navigate to **Jenkins > Manage Jenkins > System**, then find and fill in the **Jenkins URL** field. 
+
 For establishing a connection with JetBrains Space, we will need to add the Space API credentials and SSH key to Jenkins. 
 Go to **Jenkins > Manage Jenkins > Credentials** page, pick a domain to add credentials to (choose **System > Global credentials (unrestricted)** if in doubt) and add two credentials instances there.
 Pick the **JetBrains Space API credentials** kind for the first instance and provide the client id and secret values obtained from Space.

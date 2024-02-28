@@ -6,6 +6,7 @@ import hudson.plugins.git.GitSCM
 import hudson.plugins.git.RevisionParameterAction
 import hudson.scm.SCM
 import io.ktor.http.*
+import jenkins.model.Jenkins
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.space.jenkins.config.*
 import org.jetbrains.space.jenkins.scm.*
@@ -260,7 +261,7 @@ private suspend fun SpaceClient.postBuildStatus(action: SpaceGitScmCheckoutActio
         branch = action.branch,
         changes = emptyList(),
         executionStatus = status ?: getStatusFromBuild(build),
-        url = build.absoluteUrl,
+        url = if (Jenkins.get().rootUrl != null) build.absoluteUrl else build.url,
         externalServiceName = "Jenkins",
         taskName = build.parent.fullName,
         taskId = build.parent.fullName,
