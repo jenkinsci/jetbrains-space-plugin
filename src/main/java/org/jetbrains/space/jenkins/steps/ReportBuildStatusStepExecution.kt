@@ -25,7 +25,6 @@ import kotlin.coroutines.EmptyCoroutineContext
  * Drives the execution of the [ReportBuildStatusStep], which is responsible for reporting the build status
  * to JetBrains Space.
  */
-@SuppressFBWarnings("SE_NO_SERIALVERSIONID")
 class ReportBuildStatusStepExecution(
     private val action: PostBuildStatusAction,
     private val buildStatus: CommitExecutionStatus,
@@ -38,6 +37,8 @@ class ReportBuildStatusStepExecution(
 ) : StepExecution(context) {
 
     companion object {
+        private final val serialVersionUID = 1L
+
         /**
          * Obtain all the necessary parameters from the build trigger or git checkout settings if necessary and start the step execution.
          *

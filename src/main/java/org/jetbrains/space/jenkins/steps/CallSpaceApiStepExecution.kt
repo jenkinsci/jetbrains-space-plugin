@@ -33,6 +33,8 @@ class CallSpaceApiStepExecution(
 ) : StepExecution(context) {
 
     companion object {
+        private final val serialVersionUID = 1L
+
         /**
          * Obtain Space connection from the build trigger or git checkout settings if necessary and start the step execution.
          */

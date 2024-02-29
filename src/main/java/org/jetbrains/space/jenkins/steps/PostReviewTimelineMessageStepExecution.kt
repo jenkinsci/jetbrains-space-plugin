@@ -20,7 +20,6 @@ import kotlin.coroutines.EmptyCoroutineContext
  * Drives the execution of the [PostReviewTimelineMessageStep], which is responsible for posting a message
  * to the merge request timeline in Space on behalf of Jenkins integration.
  */
-@SuppressFBWarnings("SE_NO_SERIALVERSIONID")
 class PostReviewTimelineMessageStepExecution(
     private val spaceConnectionId: String,
     private val projectKey: String,
@@ -30,6 +29,8 @@ class PostReviewTimelineMessageStepExecution(
 ) : StepExecution(context) {
 
     companion object {
+        private final val serialVersionUID = 1L
+
         /**
          * Obtain all the necessary parameters from the build trigger or git checkout settings if necessary and start the step execution.
          */
