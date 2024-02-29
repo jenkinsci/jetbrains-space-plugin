@@ -205,7 +205,7 @@ private fun getUnderlyingGitSCM(scm: SCM?): GitSCM? {
 
 class SpaceGitCheckoutParams(
     val connection: SpaceConnection,
-    // lgtm[jenkins/plaintext-storage]
+    @field:SuppressWarnings("lgtm[jenkins/plaintext-storage]")
     val projectKey: String,
     val repositoryName: String
 )

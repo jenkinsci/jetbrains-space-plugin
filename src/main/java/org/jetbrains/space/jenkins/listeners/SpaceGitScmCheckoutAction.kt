@@ -18,7 +18,7 @@ data class SpaceGitScmCheckoutAction(
     val spaceConnectionId: String,
     val spaceConnectionName: String,
     val spaceUrl: String,
-    // lgtm[jenkins/plaintext-storage]
+    @field:SuppressWarnings("lgtm[jenkins/plaintext-storage]")
     val projectKey: String,
     val repositoryName: String,
     val branch: String,

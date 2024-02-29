@@ -73,7 +73,7 @@ fun getSpaceWebhookTrigger(job: Job<*, *>) =
 class PlainSpaceSCM @DataBoundConstructor constructor(
     val spaceConnectionId: String?,
     val spaceConnection: String?,
-    // lgtm[jenkins/plaintext-storage]
+    @field:SuppressWarnings("lgtm[jenkins/plaintext-storage]")
     val projectKey: String?,
     val repository: String?,
     val branches: List<BranchSpec>,
@@ -163,7 +163,7 @@ private fun checkParameterAbsence(args: Map<String, Any?>, key: String) {
 private const val CUSTOM_SPACE_CONNECTION = "customSpaceConnection"
 private const val CONNECTION_ID = "spaceConnectionId"
 private const val CONNECTION = "spaceConnection"
-// lgtm[jenkins/plaintext-storage]
+@field:SuppressWarnings("lgtm[jenkins/plaintext-storage]")
 private const val PROJECT_KEY = "projectKey"
 private const val REPOSITORY = "repository"
 private const val BRANCHES = "branches"

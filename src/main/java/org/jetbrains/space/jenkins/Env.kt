@@ -5,7 +5,7 @@ package org.jetbrains.space.jenkins
  */
 object Env {
     const val SPACE_URL = "SPACE_URL"
-    // lgtm[jenkins/plaintext-storage]
+    @field:SuppressWarnings("lgtm[jenkins/plaintext-storage]")
     const val PROJECT_KEY = "SPACE_PROJECT_KEY"
     const val REPOSITORY_NAME = "SPACE_REPOSITORY_NAME"
 
