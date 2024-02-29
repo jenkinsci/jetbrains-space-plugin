@@ -254,6 +254,7 @@ public class SpaceSCM extends SCM {
     public static class CustomSpaceConnection {
         private final String spaceConnectionId;
         private final String spaceConnection;
+        // lgtm[jenkins/plaintext-storage]
         private final String projectKey;
         private final String repository;
         private final List<BranchSpec> branches;

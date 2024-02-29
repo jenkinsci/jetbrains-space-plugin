@@ -18,6 +18,8 @@ import javax.inject.Singleton
 
 @Singleton
 @SuppressFBWarnings("NP_NONNULL_RETURN_VIOLATION")
+// methods in this class are non-routable
+@SuppressWarnings("lgtm[jenkins/csrf]")
 class SpaceSCMParamsProvider {
 
     @Inject

@@ -41,6 +41,7 @@ public class PostReviewTimelineMessageStep extends Step {
     private final String messageText;
     private String spaceConnection;
     private String spaceConnectionId;
+    // lgtm[jenkins/plaintext-storage]
     private String projectKey;
     private Integer mergeRequestNumber;
 

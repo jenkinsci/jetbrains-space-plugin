@@ -10,6 +10,7 @@ import java.io.Serializable
  */
 class PostBuildStatusAction(
     val spaceConnectionId: String,
+    // lgtm[jenkins/plaintext-storage]
     val projectKey: String,
     val repositoryName: String,
     val branch: String,

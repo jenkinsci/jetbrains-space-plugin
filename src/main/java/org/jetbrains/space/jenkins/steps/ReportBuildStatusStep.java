@@ -44,6 +44,7 @@ public class ReportBuildStatusStep extends Step {
     private CommitExecutionStatus buildStatus;
     private String spaceConnection;
     private String spaceConnectionId;
+    // lgtm[jenkins/plaintext-storage]
     private String projectKey;
     private String repository;
     private String revision;

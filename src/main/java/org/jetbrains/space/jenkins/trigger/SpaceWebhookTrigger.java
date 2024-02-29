@@ -39,6 +39,7 @@ public class SpaceWebhookTrigger extends Trigger<Job<?, ?>> {
 
     private final String id;
     private final String spaceConnectionId;
+    // lgtm[jenkins/plaintext-storage]
     private final String projectKey;
     private final String repositoryName;
     private final Boolean allowSafeMerge;

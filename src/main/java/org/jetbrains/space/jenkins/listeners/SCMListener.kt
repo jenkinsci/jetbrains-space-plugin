@@ -203,7 +203,12 @@ private fun getUnderlyingGitSCM(scm: SCM?): GitSCM? {
     return null
 }
 
-class SpaceGitCheckoutParams(val connection: SpaceConnection, val projectKey: String, val repositoryName: String)
+class SpaceGitCheckoutParams(
+    val connection: SpaceConnection,
+    // lgtm[jenkins/plaintext-storage]
+    val projectKey: String,
+    val repositoryName: String
+)
 
 /**
  * Retrieves Space connection, project, repository and the list of branch specs for a given job with Space SCM settings.
