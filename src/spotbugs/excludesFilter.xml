@@ -8,6 +8,8 @@
             <Bug pattern="NP_NONNULL_PARAM_VIOLATION" />
             <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
             <Bug pattern="NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE" />
+            <Bug pattern="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE" />
+            <Bug pattern="BC_VACUOUS_INSTANCEOF" />
         </Or>
         <Source name="~.*\.kt" />
     </Match>
