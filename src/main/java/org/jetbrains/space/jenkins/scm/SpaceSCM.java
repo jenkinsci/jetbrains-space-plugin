@@ -6,6 +6,7 @@ import edu.umd.cs.findbugs.annotations.Nullable;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
+import hudson.model.Item;
 import hudson.model.Job;
 import hudson.model.Run;
 import hudson.model.TaskListener;
@@ -16,6 +17,7 @@ import hudson.plugins.git.extensions.GitSCMExtension;
 import hudson.plugins.git.extensions.GitSCMExtensionDescriptor;
 import hudson.scm.*;
 import hudson.util.ListBoxModel;
+import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.structs.describable.CustomDescribableModel;
 import org.jenkinsci.plugins.structs.describable.UninstantiatedDescribable;
@@ -33,6 +35,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+
+import static org.jetbrains.space.jenkins.config.UtilsKt.checkPermissions;
 
 /**
  * <p>{@link SCM} implementation for JetBrains Space. Wraps the standard Git SCM implementation, adding some features on top of it.</p>
@@ -215,21 +219,22 @@ public class SpaceSCM extends SCM {
         }
 
         @POST
-        public ListBoxModel doFillSpaceConnectionItems() {
-            return scmParamsProvider.doFillSpaceConnectionNameItems();
+        public ListBoxModel doFillSpaceConnectionItems(@AncestorInPath Item context) {
+            return scmParamsProvider.doFillSpaceConnectionNameItems(context);
         }
 
         @POST
-        public HttpResponse doFillProjectKeyItems(@QueryParameter String spaceConnection) {
-            return scmParamsProvider.doFillProjectKeyItems(null, spaceConnection);
+        public HttpResponse doFillProjectKeyItems(@AncestorInPath Item context, @QueryParameter String spaceConnection) {
+            return scmParamsProvider.doFillProjectKeyItems(context, null, spaceConnection);
         }
 
         @POST
-        public HttpResponse doFillRepositoryItems(@QueryParameter String spaceConnection, @QueryParameter String projectKey) {
-            return scmParamsProvider.doFillRepositoryNameItems(null, spaceConnection, projectKey);
+        public HttpResponse doFillRepositoryItems(@AncestorInPath Item context, @QueryParameter String spaceConnection, @QueryParameter String projectKey) {
+            return scmParamsProvider.doFillRepositoryNameItems(context, null, spaceConnection, projectKey);
         }
 
         @POST
+        // lgtm[jenkins/no-permission-check]
         public ListBoxModel doFillGitToolItems() {
             return gitScmDescriptor.doFillGitToolItems();
         }

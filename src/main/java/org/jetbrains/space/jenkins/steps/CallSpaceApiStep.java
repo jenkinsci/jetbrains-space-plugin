@@ -3,6 +3,7 @@ package org.jetbrains.space.jenkins.steps;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.Nullable;
 import hudson.Extension;
+import hudson.model.Item;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.util.ListBoxModel;
@@ -15,6 +16,7 @@ import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.space.jenkins.config.SpacePluginConfiguration;
 import org.jetbrains.space.jenkins.scm.SpaceSCMParamsProvider;
+import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.StaplerRequest;
@@ -121,6 +123,7 @@ public class CallSpaceApiStep extends Step {
         }
 
         @POST
+        // lgtm[jenkins/no-permission-check]
         public ListBoxModel doFillHttpMethodItems() {
             return HttpMethod.Companion.getDefaultMethods().stream()
                     .map(method -> new ListBoxModel.Option(method.getValue()))
@@ -128,8 +131,8 @@ public class CallSpaceApiStep extends Step {
         }
 
         @POST
-        public ListBoxModel doFillSpaceConnectionItems() {
-            return scmParamsProvider.doFillSpaceConnectionNameItems();
+        public ListBoxModel doFillSpaceConnectionItems(@AncestorInPath Item context) {
+            return scmParamsProvider.doFillSpaceConnectionNameItems(context);
         }
 
         @Override

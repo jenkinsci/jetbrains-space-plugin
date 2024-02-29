@@ -3,13 +3,12 @@ package org.jetbrains.space.jenkins.config
 import com.cloudbees.plugins.credentials.CredentialsMatchers
 import com.cloudbees.plugins.credentials.CredentialsProvider
 import com.cloudbees.plugins.credentials.domains.URIRequirementBuilder
+import hudson.model.Item
 import hudson.plugins.git.BranchSpec
 import hudson.plugins.git.UserRemoteConfig
 import hudson.security.ACL
-import io.ktor.http.*
 import jenkins.model.Jenkins
 import kotlinx.coroutines.runBlocking
-import org.jetbrains.space.jenkins.trigger.SpaceWebhookTriggerCause
 import space.jetbrains.api.runtime.SpaceAppInstance
 import space.jetbrains.api.runtime.SpaceAuth
 import space.jetbrains.api.runtime.SpaceClient
@@ -102,6 +101,14 @@ fun SpacePluginConfiguration.getConnectionByIdOrName(id: String?, name: String?)
             connections.firstOrNull { it.name == name }
         else ->
             null
+    }
+}
+
+fun checkPermissions(context: Item?) {
+    if (context != null) {
+        context.checkPermission(Item.EXTENDED_READ)
+    } else {
+        Jenkins.get().checkPermission(Jenkins.ADMINISTER)
     }
 }
 

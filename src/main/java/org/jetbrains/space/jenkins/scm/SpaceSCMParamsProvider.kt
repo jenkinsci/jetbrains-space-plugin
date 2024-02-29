@@ -1,12 +1,10 @@
 package org.jetbrains.space.jenkins.scm
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings
+import hudson.model.Item
 import hudson.util.ListBoxModel
 import kotlinx.coroutines.runBlocking
-import org.jetbrains.space.jenkins.config.SpacePluginConfiguration
-import org.jetbrains.space.jenkins.config.getApiClient
-import org.jetbrains.space.jenkins.config.getConnectionById
-import org.jetbrains.space.jenkins.config.getConnectionByIdOrName
+import org.jetbrains.space.jenkins.config.*
 import org.kohsuke.stapler.HttpResponse
 import org.kohsuke.stapler.HttpResponses
 import space.jetbrains.api.runtime.resources.projects
@@ -25,20 +23,27 @@ class SpaceSCMParamsProvider {
     @Inject
     lateinit var spacePluginConfiguration: SpacePluginConfiguration
 
-    fun doFillSpaceConnectionIdItems() =
-        ListBoxModel(spacePluginConfiguration.connections.map { ListBoxModel.Option(it.name, it.id) })
+    fun doFillSpaceConnectionIdItems(context: Item?): ListBoxModel {
+        checkPermissions(context)
+        return ListBoxModel(spacePluginConfiguration.connections.map { ListBoxModel.Option(it.name, it.id) })
+    }
 
-    fun doFillSpaceConnectionNameItems() =
-        ListBoxModel(spacePluginConfiguration.connections.map { ListBoxModel.Option(it.name) })
+    fun doFillSpaceConnectionNameItems(context: Item?): ListBoxModel {
+        checkPermissions(context)
+        return ListBoxModel(spacePluginConfiguration.connections.map { ListBoxModel.Option(it.name) })
+    }
 
-    fun doFillProjectKeyItems(spaceConnectionId: String?) =
-        doFillProjectKeyItems(spaceConnectionId = spaceConnectionId, spaceConnectionName = null)
+    fun doFillProjectKeyItems(context: Item?, spaceConnectionId: String?): HttpResponse {
+        return doFillProjectKeyItems(context, spaceConnectionId = spaceConnectionId, spaceConnectionName = null)
+    }
 
-    fun doFillProjectKeyItems(spaceConnectionId: String?, spaceConnectionName: String?): HttpResponse {
+    fun doFillProjectKeyItems(context: Item?, spaceConnectionId: String?, spaceConnectionName: String?): HttpResponse {
+        checkPermissions(context)
+
         if (spaceConnectionId == null && spaceConnectionName == null) {
-            val firstConnectionId = doFillSpaceConnectionIdItems().firstOrNull()?.value
+            val firstConnectionId = doFillSpaceConnectionIdItems(context).firstOrNull()?.value
                 ?: return HttpResponses.errorWithoutStack(HttpURLConnection.HTTP_BAD_REQUEST, "No Space connections configured for Jenkins")
-            return doFillProjectKeyItems(firstConnectionId)
+            return doFillProjectKeyItems(context, firstConnectionId)
         }
 
         if (spaceConnectionId.isNullOrBlank() && spaceConnectionName.isNullOrBlank()) {
@@ -73,20 +78,21 @@ class SpaceSCMParamsProvider {
         }
     }
 
-    fun doFillRepositoryNameItems(spaceConnectionId: String?, projectKey: String?): HttpResponse {
+    fun doFillRepositoryNameItems(context: Item?, spaceConnectionId: String?, projectKey: String?): HttpResponse {
         return doFillRepositoryNameItems(
+            context,
             spaceConnectionId = spaceConnectionId,
             spaceConnectionName = null,
             projectKey = projectKey
         )
     }
 
-    fun doFillRepositoryNameItems(spaceConnectionId: String?, spaceConnectionName: String?, projectKey: String?): HttpResponse {
+    fun doFillRepositoryNameItems(context: Item?, spaceConnectionId: String?, spaceConnectionName: String?, projectKey: String?): HttpResponse {
         if (spaceConnectionId == null && spaceConnectionName == null) {
-            val firstConnectionId = doFillSpaceConnectionIdItems().firstOrNull()?.value
+            val firstConnectionId = doFillSpaceConnectionIdItems(context).firstOrNull()?.value
                 ?: return HttpResponses.errorWithoutStack(HttpURLConnection.HTTP_BAD_REQUEST, "No Space connections configured for Jenkins")
-            val firstProjectKey = (doFillProjectKeyItems(firstConnectionId) as? ListBoxModel)?.firstOrNull()?.value
-            return doFillRepositoryNameItems(firstConnectionId, firstProjectKey)
+            val firstProjectKey = (doFillProjectKeyItems(context, firstConnectionId) as? ListBoxModel)?.firstOrNull()?.value
+            return doFillRepositoryNameItems(context, firstConnectionId, firstProjectKey)
         }
 
         if (spaceConnectionId.isNullOrBlank() && spaceConnectionName.isNullOrBlank()) {

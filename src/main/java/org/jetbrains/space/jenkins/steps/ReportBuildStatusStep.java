@@ -3,6 +3,7 @@ package org.jetbrains.space.jenkins.steps;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.Nullable;
 import hudson.Extension;
+import hudson.model.Item;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
@@ -163,25 +164,26 @@ public class ReportBuildStatusStep extends Step {
         }
 
         @POST
-        public ListBoxModel doFillSpaceConnectionItems() {
-            return scmParamsProvider.doFillSpaceConnectionNameItems();
+        public ListBoxModel doFillSpaceConnectionItems(@AncestorInPath Item context) {
+            return scmParamsProvider.doFillSpaceConnectionNameItems(context);
         }
 
         @POST
-        public HttpResponse doFillProjectKeyItems(@QueryParameter String spaceConnection) {
+        public HttpResponse doFillProjectKeyItems(@AncestorInPath Item context, @QueryParameter String spaceConnection) {
             if (spaceConnection.isBlank())
                 return new ListBoxModel();
-            return scmParamsProvider.doFillProjectKeyItems(null, spaceConnection);
+            return scmParamsProvider.doFillProjectKeyItems(context, null, spaceConnection);
         }
 
         @POST
-        public HttpResponse doFillRepositoryItems(@QueryParameter String spaceConnection, @QueryParameter String projectKey) {
+        public HttpResponse doFillRepositoryItems(@AncestorInPath Item context, @QueryParameter String spaceConnection, @QueryParameter String projectKey) {
             if (spaceConnection.isBlank())
                 return new ListBoxModel();
-            return scmParamsProvider.doFillRepositoryNameItems(null, spaceConnection, projectKey);
+            return scmParamsProvider.doFillRepositoryNameItems(context, null, spaceConnection, projectKey);
         }
 
         @POST
+        // lgtm[jenkins/no-permission-check]
         public ListBoxModel doFillBuildStatusItems() {
             return CommitExecutionStatus.getEntries().stream()
                     .map(c -> new ListBoxModel.Option(c.name()))
@@ -189,6 +191,7 @@ public class ReportBuildStatusStep extends Step {
         }
 
         @POST
+        // lgtm[jenkins/no-permission-check]
         public FormValidation doCheckProjectKey(@QueryParameter String spaceConnection, @QueryParameter String projectKey) {
             if (!spaceConnection.isBlank() && projectKey.isBlank())
                 return FormValidation.error("Choose project in Space");
@@ -197,6 +200,7 @@ public class ReportBuildStatusStep extends Step {
         }
 
         @POST
+        // lgtm[jenkins/no-permission-check]
         public FormValidation doCheckRepositoryName(@QueryParameter String spaceConnection, @QueryParameter String projectKey, @QueryParameter String repositoryName) {
             if (!spaceConnection.isBlank() && !projectKey.isBlank() && repositoryName.isBlank())
                 return FormValidation.error("Choose repository in Space");
@@ -205,6 +209,7 @@ public class ReportBuildStatusStep extends Step {
         }
 
         @POST
+        // lgtm[jenkins/no-permission-check]
         public FormValidation doCheckRevision(@QueryParameter String revision, @QueryParameter String branch) {
             if (revision.isBlank() && !branch.isBlank())
                 return FormValidation.error("Specify git commit");
@@ -213,6 +218,7 @@ public class ReportBuildStatusStep extends Step {
         }
 
         @POST
+        // lgtm[jenkins/no-permission-check]
         public FormValidation doCheckBranch(@QueryParameter String revision, @QueryParameter String branch) {
             if (branch.isBlank() && !revision.isBlank())
                 return FormValidation.error("Specify git branch");

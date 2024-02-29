@@ -3,6 +3,7 @@ package org.jetbrains.space.jenkins.steps;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.Nullable;
 import hudson.Extension;
+import hudson.model.Item;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
@@ -123,18 +124,19 @@ public class PostReviewTimelineMessageStep extends Step {
         }
 
         @POST
-        public ListBoxModel doFillSpaceConnectionItems() {
-            return scmParamsProvider.doFillSpaceConnectionNameItems();
+        public ListBoxModel doFillSpaceConnectionItems(@AncestorInPath Item context) {
+            return scmParamsProvider.doFillSpaceConnectionNameItems(context);
         }
 
         @POST
-        public HttpResponse doFillProjectKeyItems(@QueryParameter String spaceConnection) {
+        public HttpResponse doFillProjectKeyItems(@AncestorInPath Item context, @QueryParameter String spaceConnection) {
             if (spaceConnection.isBlank())
                 return new ListBoxModel();
-            return scmParamsProvider.doFillProjectKeyItems(null, spaceConnection);
+            return scmParamsProvider.doFillProjectKeyItems(context,null, spaceConnection);
         }
 
         @POST
+        // lgtm[jenkins/no-permission-check]
         public FormValidation doCheckProjectKey(@QueryParameter String spaceConnection, @QueryParameter String projectKey) {
             if (spaceConnection != null && !spaceConnection.isBlank() && projectKey.isBlank())
                 return FormValidation.error("Choose project in Space");

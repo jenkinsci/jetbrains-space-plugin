@@ -20,6 +20,8 @@ public class SpaceWebhookEndpoint implements UnprotectedRootAction {
     private SpaceAppInstanceStorageImpl spaceAppInstanceStorage;
 
     @POST
+    // Authentication is performed as part of processing the request payload by Space SDK
+    // lgtm[jenkins/no-permission-check]
     public void doProcess(StaplerRequest request, StaplerResponse response) {
         SpaceWebhookEndpointKt.doProcess(this, request, response);
     }

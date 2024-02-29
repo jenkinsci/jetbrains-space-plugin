@@ -12,10 +12,7 @@ import jenkins.triggers.SCMTriggerItem;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.space.jenkins.config.SpacePluginConfiguration;
 import org.jetbrains.space.jenkins.scm.SpaceSCMParamsProvider;
-import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.DataBoundSetter;
-import org.kohsuke.stapler.HttpResponse;
-import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.*;
 import org.kohsuke.stapler.verb.POST;
 
 /**
@@ -179,18 +176,18 @@ public class SpaceWebhookTrigger extends Trigger<Job<?, ?>> {
         }
 
         @POST
-        public ListBoxModel doFillSpaceConnectionIdItems() {
-            return scmParamsProvider.doFillSpaceConnectionIdItems();
+        public ListBoxModel doFillSpaceConnectionIdItems(@AncestorInPath Item context) {
+            return scmParamsProvider.doFillSpaceConnectionIdItems(context);
         }
 
         @POST
-        public HttpResponse doFillProjectKeyItems(@QueryParameter String spaceConnectionId) {
-            return scmParamsProvider.doFillProjectKeyItems(spaceConnectionId);
+        public HttpResponse doFillProjectKeyItems(@AncestorInPath Item context, @QueryParameter String spaceConnectionId) {
+            return scmParamsProvider.doFillProjectKeyItems(context, spaceConnectionId);
         }
 
         @POST
-        public HttpResponse doFillRepositoryNameItems(@QueryParameter String spaceConnectionId, @QueryParameter String projectKey) {
-            return scmParamsProvider.doFillRepositoryNameItems(spaceConnectionId, projectKey);
+        public HttpResponse doFillRepositoryNameItems(@AncestorInPath Item context, @QueryParameter String spaceConnectionId, @QueryParameter String projectKey) {
+            return scmParamsProvider.doFillRepositoryNameItems(context, spaceConnectionId, projectKey);
         }
     }
 }
