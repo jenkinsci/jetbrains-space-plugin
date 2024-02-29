@@ -126,12 +126,12 @@ class PlainSpaceSCM @DataBoundConstructor constructor(
 }
 
 fun Run<*, *>.getForcedBranchName() =
-    (getAction(ParametersAction::class.java)?.getParameter("GIT_BRANCH") as? StringParameterValue)?.value?.let {
+    (getAction(ParametersAction::class.java)?.getParameter("GIT_BRANCH") as? StringParameterValue)?.getValue()?.let {
         if (it.startsWith("refs/")) it else "refs/heads/$it"
     }
 
 fun Run<*, *>.getForcedMergeRequestNumber() =
-    (getAction(ParametersAction::class.java)?.getParameter("SPACE_MERGE_REQUEST_NUMBER") as? StringParameterValue)?.value?.toIntOrNull()
+    (getAction(ParametersAction::class.java)?.getParameter("SPACE_MERGE_REQUEST_NUMBER") as? StringParameterValue)?.getValue()?.toIntOrNull()
 
 fun Run<*, *>.getForcedMergeRequest(space: SpaceGitCheckoutParams) =
     getForcedMergeRequestNumber()?.let { mergeRequestNumber ->
