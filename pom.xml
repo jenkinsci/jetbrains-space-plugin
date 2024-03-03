@@ -72,7 +72,7 @@
     <dependency>
       <groupId>org.jetbrains</groupId>
       <artifactId>space-sdk-jvm</artifactId>
-      <version>2024.2-178074</version>
+      <version>168099</version>
     </dependency>
     <dependency>
       <groupId>org.jenkins-ci.plugins</groupId>
