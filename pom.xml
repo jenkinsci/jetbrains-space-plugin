@@ -127,7 +127,7 @@
       <plugin>
         <groupId>org.jetbrains.kotlin</groupId>
         <artifactId>kotlin-maven-plugin</artifactId>
-        <version>1.9.0</version>
+        <version>1.9.23</version>
         <executions>
           <execution>
             <id>compile</id>
