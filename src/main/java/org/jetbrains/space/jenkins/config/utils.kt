@@ -112,6 +112,4 @@ fun checkPermissions(context: Item?) {
     }
 }
 
-const val SPACE_LOGO_ICON = "icon-space-logo"
-
 private val LOGGER = Logger.getLogger(SpacePluginConfiguration::class.java.name)
