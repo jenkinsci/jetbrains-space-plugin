@@ -31,11 +31,10 @@ public class SpacePluginConfiguration extends GlobalConfiguration {
     @DataBoundSetter
     public void setConnections(List<SpaceConnection> connections) {
         this.connections = connections;
-        save();
     }
 
     @Override
-    public boolean configure(StaplerRequest req, JSONObject json) throws FormException {
+    public boolean configure(StaplerRequest req, JSONObject json) {
         connections = Collections.emptyList(); // form binding might omit empty lists
         req.bindJSON(this, json);
         save();
