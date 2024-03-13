@@ -1,16 +1,16 @@
 package org.jetbrains.space.jenkins.trigger;
 
 import hudson.Extension;
+import hudson.ExtensionList;
 import hudson.model.Item;
 import hudson.model.Job;
 import hudson.triggers.Trigger;
 import hudson.triggers.TriggerDescriptor;
 import hudson.util.ListBoxModel;
-import javax.inject.Inject;
+
 import java.util.UUID;
 import jenkins.triggers.SCMTriggerItem;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.space.jenkins.config.SpacePluginConfiguration;
 import org.jetbrains.space.jenkins.scm.SpaceSCMParamsProvider;
 import org.kohsuke.stapler.*;
 import org.kohsuke.stapler.verb.POST;
@@ -159,12 +159,6 @@ public class SpaceWebhookTrigger extends Trigger<Job<?, ?>> {
             load();
         }
 
-        @Inject
-        private SpaceSCMParamsProvider scmParamsProvider;
-
-        @Inject
-        public SpacePluginConfiguration spacePluginConfiguration;
-
         @Override
         public @NotNull String getDisplayName() {
             return "Triggered by JetBrains Space";
@@ -177,17 +171,17 @@ public class SpaceWebhookTrigger extends Trigger<Job<?, ?>> {
 
         @POST
         public ListBoxModel doFillSpaceConnectionIdItems(@AncestorInPath Item context) {
-            return scmParamsProvider.doFillSpaceConnectionIdItems(context);
+            return SpaceSCMParamsProvider.INSTANCE.doFillSpaceConnectionIdItems(context);
         }
 
         @POST
         public HttpResponse doFillProjectKeyItems(@AncestorInPath Item context, @QueryParameter String spaceConnectionId) {
-            return scmParamsProvider.doFillProjectKeyItems(context, spaceConnectionId);
+            return SpaceSCMParamsProvider.INSTANCE.doFillProjectKeyItems(context, spaceConnectionId);
         }
 
         @POST
         public HttpResponse doFillRepositoryNameItems(@AncestorInPath Item context, @QueryParameter String spaceConnectionId, @QueryParameter String projectKey) {
-            return scmParamsProvider.doFillRepositoryNameItems(context, spaceConnectionId, projectKey);
+            return SpaceSCMParamsProvider.INSTANCE.doFillRepositoryNameItems(context, spaceConnectionId, projectKey);
         }
     }
 }

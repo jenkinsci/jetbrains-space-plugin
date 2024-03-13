@@ -9,6 +9,7 @@ import jenkins.model.Jenkins
 import jenkins.triggers.SCMTriggerItem
 import jenkins.triggers.TriggeredItem
 import kotlinx.coroutines.runBlocking
+import org.jetbrains.space.jenkins.config.SpaceAppInstanceStorageImpl
 import org.jetbrains.space.jenkins.config.SpaceConnection
 import org.jetbrains.space.jenkins.config.SpacePluginConfiguration
 import org.jetbrains.space.jenkins.config.getConnectionByClientId
@@ -45,7 +46,7 @@ fun SpaceWebhookEndpoint.doProcess(request: StaplerRequest, response: StaplerRes
     runBlocking {
         // wrap request processing with the Space SDK function call that handles some common logic
         // like verifying request signature and deserializing the payload for us
-        Space.processPayload(requestAdapter, ktorClientForSpace, spaceAppInstanceStorage) { payload ->
+        Space.processPayload(requestAdapter, ktorClientForSpace, SpaceAppInstanceStorageImpl()) { payload ->
             when (payload) {
                 is WebhookRequestPayload ->
                     processWebhookCallback(payload)

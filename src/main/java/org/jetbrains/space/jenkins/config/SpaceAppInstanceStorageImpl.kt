@@ -1,14 +1,13 @@
 package org.jetbrains.space.jenkins.config
 
 import com.cloudbees.plugins.credentials.CredentialsProvider
+import hudson.ExtensionList
 import hudson.security.ACL
 import jenkins.model.Jenkins
 import space.jetbrains.api.ExperimentalSpaceSdkApi
 import space.jetbrains.api.runtime.SpaceAppInstance
 import space.jetbrains.api.runtime.helpers.SpaceAppInstanceStorage
 import java.util.logging.Logger
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Implements an interface provided by the Space SDK for managing connected Space instances in a multi-tenant application.
@@ -18,11 +17,7 @@ import javax.inject.Singleton
  * those actions have to be performed manually in Jenkins configuration.
  */
 @OptIn(ExperimentalSpaceSdkApi::class)
-@Singleton
 class SpaceAppInstanceStorageImpl : SpaceAppInstanceStorage {
-
-    @Inject
-    private lateinit var spacePluginConfiguration: SpacePluginConfiguration;
 
     override suspend fun loadAppInstance(clientId: String): SpaceAppInstance? {
         val creds = CredentialsProvider
@@ -33,7 +28,7 @@ class SpaceAppInstanceStorageImpl : SpaceAppInstanceStorage {
                 return null
             }
 
-        val connection = spacePluginConfiguration.connections.firstOrNull { it.apiCredentialId == creds.id }
+        val connection = ExtensionList.lookupSingleton(SpacePluginConfiguration::class.java).connections.firstOrNull { it.apiCredentialId == creds.id }
             ?: run {
                 LOGGER.info("Loading Space app instance for client id = $clientId not found")
                 return null

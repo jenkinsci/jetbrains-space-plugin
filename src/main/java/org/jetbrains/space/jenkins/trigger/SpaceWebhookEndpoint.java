@@ -2,12 +2,9 @@ package org.jetbrains.space.jenkins.trigger;
 
 import hudson.Extension;
 import hudson.model.UnprotectedRootAction;
-import org.jetbrains.space.jenkins.config.SpaceAppInstanceStorageImpl;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
 import org.kohsuke.stapler.verb.POST;
-
-import javax.inject.Inject;
 
 /**
  * Handles HTTP requests for the webhook callbacks or safe merge commands from Space.
@@ -15,9 +12,6 @@ import javax.inject.Inject;
  */
 @Extension
 public class SpaceWebhookEndpoint implements UnprotectedRootAction {
-
-    @Inject
-    private SpaceAppInstanceStorageImpl spaceAppInstanceStorage;
 
     @POST
     // Authentication is performed as part of processing the request payload by Space SDK
@@ -42,8 +36,4 @@ public class SpaceWebhookEndpoint implements UnprotectedRootAction {
     }
 
     public static final String URL = "jb-space";
-
-    public SpaceAppInstanceStorageImpl getSpaceAppInstanceStorage() {
-        return spaceAppInstanceStorage;
-    }
 }

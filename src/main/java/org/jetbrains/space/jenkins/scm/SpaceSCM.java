@@ -4,6 +4,7 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.Nullable;
 import hudson.Extension;
+import hudson.ExtensionList;
 import hudson.FilePath;
 import hudson.Launcher;
 import hudson.model.Item;
@@ -17,7 +18,6 @@ import hudson.plugins.git.extensions.GitSCMExtension;
 import hudson.plugins.git.extensions.GitSCMExtensionDescriptor;
 import hudson.scm.*;
 import hudson.util.ListBoxModel;
-import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.structs.describable.CustomDescribableModel;
 import org.jenkinsci.plugins.structs.describable.UninstantiatedDescribable;
@@ -30,7 +30,6 @@ import org.jetbrains.space.jenkins.trigger.SpaceWebhookTrigger;
 import org.kohsuke.stapler.*;
 import org.kohsuke.stapler.verb.POST;
 
-import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
@@ -94,9 +93,8 @@ public class SpaceSCM extends SCM {
         if (customSpaceConnection == null)
             return null;
 
-        DescriptorImpl descriptor = (DescriptorImpl) getDescriptor();
         SpaceConnection spaceConnection = UtilsKt.getConnectionByIdOrName(
-                descriptor.spacePluginConfiguration, customSpaceConnection.spaceConnectionId, customSpaceConnection.spaceConnection);
+                ExtensionList.lookupSingleton(SpacePluginConfiguration.class), customSpaceConnection.spaceConnectionId, customSpaceConnection.spaceConnection);
         return (spaceConnection != null)
                 ? new SpaceRepositoryBrowser(spaceConnection, customSpaceConnection.projectKey, customSpaceConnection.repository)
                 : null;
@@ -174,19 +172,13 @@ public class SpaceSCM extends SCM {
     }
 
     private void initializeGitScm(Job<?, ?> job, @Nullable Run<?, ?> build) {
-        gitSCM = SpaceSCMKt.initializeGitScm(this, job, build, ((DescriptorImpl) getDescriptor()).spacePluginConfiguration);
+        gitSCM = SpaceSCMKt.initializeGitScm(this, job, build, ExtensionList.lookupSingleton(SpacePluginConfiguration.class));
     }
 
     @SuppressWarnings("unused")
     @Symbol("SpaceGit")
     @Extension
     public static class DescriptorImpl extends SCMDescriptor<SpaceSCM> implements CustomDescribableModel {
-
-        @Inject
-        private SpacePluginConfiguration spacePluginConfiguration;
-
-        @Inject
-        private SpaceSCMParamsProvider scmParamsProvider;
 
         private final GitSCM.DescriptorImpl gitScmDescriptor;
 
@@ -218,17 +210,17 @@ public class SpaceSCM extends SCM {
 
         @POST
         public ListBoxModel doFillSpaceConnectionItems(@AncestorInPath Item context) {
-            return scmParamsProvider.doFillSpaceConnectionNameItems(context);
+            return SpaceSCMParamsProvider.INSTANCE.doFillSpaceConnectionNameItems(context);
         }
 
         @POST
         public HttpResponse doFillProjectKeyItems(@AncestorInPath Item context, @QueryParameter String spaceConnection) {
-            return scmParamsProvider.doFillProjectKeyItems(context, null, spaceConnection);
+            return SpaceSCMParamsProvider.INSTANCE.doFillProjectKeyItems(context, null, spaceConnection);
         }
 
         @POST
         public HttpResponse doFillRepositoryItems(@AncestorInPath Item context, @QueryParameter String spaceConnection, @QueryParameter String projectKey) {
-            return scmParamsProvider.doFillRepositoryNameItems(context, null, spaceConnection, projectKey);
+            return SpaceSCMParamsProvider.INSTANCE.doFillRepositoryNameItems(context, null, spaceConnection, projectKey);
         }
 
         @POST
