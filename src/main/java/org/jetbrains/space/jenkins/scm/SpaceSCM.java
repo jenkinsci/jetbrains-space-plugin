@@ -36,8 +36,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-import static org.jetbrains.space.jenkins.config.UtilsKt.checkPermissions;
-
 /**
  * <p>{@link SCM} implementation for JetBrains Space. Wraps the standard Git SCM implementation, adding some features on top of it.</p>
  * <p>Allows checking out source code by selecting a configured Space connection and then choosing a project and repository,
