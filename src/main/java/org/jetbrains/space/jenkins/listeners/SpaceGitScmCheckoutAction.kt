@@ -4,7 +4,6 @@ import hudson.EnvVars
 import hudson.model.EnvironmentContributingAction
 import hudson.model.Run
 import org.jetbrains.space.jenkins.Env
-import org.jetbrains.space.jenkins.config.SPACE_LOGO_ICON
 import org.jetbrains.space.jenkins.trigger.TriggerCause
 import org.jetbrains.space.jenkins.trigger.TriggerCause.MergeRequest
 import java.net.URLEncoder
@@ -29,7 +28,8 @@ data class SpaceGitScmCheckoutAction(
     val sourceDisplayName: String? = null
 ) : EnvironmentContributingAction {
 
-    override fun getIconFileName() = SPACE_LOGO_ICON
+    override fun getIconFileName() =
+        "symbol-space plugin-jetbrains-space"
 
     override fun getDisplayName() =
         if (cause is TriggerCause.MergeRequest)
