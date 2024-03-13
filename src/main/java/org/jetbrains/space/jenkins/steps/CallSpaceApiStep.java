@@ -3,6 +3,7 @@ package org.jetbrains.space.jenkins.steps;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.Nullable;
 import hudson.Extension;
+import hudson.ExtensionList;
 import hudson.model.Item;
 import hudson.model.Run;
 import hudson.model.TaskListener;
@@ -22,7 +23,6 @@ import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.verb.POST;
 
-import javax.inject.Inject;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -62,9 +62,7 @@ public class CallSpaceApiStep extends Step {
 
     @Override
     public StepExecution start(StepContext context) {
-        return CallSpaceApiStepExecution.Companion.start(
-                this, context, ((CallSpaceApiStep.DescriptorImpl) getDescriptor()).spacePluginConfiguration
-        );
+        return CallSpaceApiStepExecution.Companion.start(this, context, ExtensionList.lookupSingleton(SpacePluginConfiguration.class));
     }
 
     public String getHttpMethod() {
@@ -101,12 +99,6 @@ public class CallSpaceApiStep extends Step {
     @Extension
     public static class DescriptorImpl extends StepDescriptor {
 
-        @Inject
-        private SpacePluginConfiguration spacePluginConfiguration;
-
-        @Inject
-        private SpaceSCMParamsProvider scmParamsProvider;
-
         @Override
         public @NotNull String getDisplayName() {
             return "Make a call to JetBrains Space HTTP API";
@@ -132,7 +124,7 @@ public class CallSpaceApiStep extends Step {
 
         @POST
         public ListBoxModel doFillSpaceConnectionItems(@AncestorInPath Item context) {
-            return scmParamsProvider.doFillSpaceConnectionNameItems(context);
+            return SpaceSCMParamsProvider.INSTANCE.doFillSpaceConnectionNameItems(context);
         }
 
         @Override

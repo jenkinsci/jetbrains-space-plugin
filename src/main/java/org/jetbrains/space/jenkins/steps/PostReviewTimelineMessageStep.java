@@ -3,6 +3,7 @@ package org.jetbrains.space.jenkins.steps;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.Nullable;
 import hudson.Extension;
+import hudson.ExtensionList;
 import hudson.model.Item;
 import hudson.model.Run;
 import hudson.model.TaskListener;
@@ -19,7 +20,6 @@ import org.jetbrains.space.jenkins.scm.SpaceSCMParamsProvider;
 import org.kohsuke.stapler.*;
 import org.kohsuke.stapler.verb.POST;
 
-import javax.inject.Inject;
 import java.io.IOException;
 import java.util.*;
 
@@ -54,7 +54,7 @@ public class PostReviewTimelineMessageStep extends Step {
     @Override
     public StepExecution start(StepContext context) throws IOException, InterruptedException {
         return PostReviewTimelineMessageStepExecution.Companion.start(
-                this, context, ((DescriptorImpl) getDescriptor()).spacePluginConfiguration
+                this, context, ExtensionList.lookupSingleton(SpacePluginConfiguration.class)
         );
     }
 
@@ -102,12 +102,6 @@ public class PostReviewTimelineMessageStep extends Step {
     @Extension
     public static class DescriptorImpl extends StepDescriptor {
 
-        @Inject
-        private SpacePluginConfiguration spacePluginConfiguration;
-
-        @Inject
-        private SpaceSCMParamsProvider scmParamsProvider;
-
         @Override
         public @NotNull String getDisplayName() {
             return "Post message to the review timeline in JetBrains Space";
@@ -125,14 +119,14 @@ public class PostReviewTimelineMessageStep extends Step {
 
         @POST
         public ListBoxModel doFillSpaceConnectionItems(@AncestorInPath Item context) {
-            return scmParamsProvider.doFillSpaceConnectionNameItems(context);
+            return SpaceSCMParamsProvider.INSTANCE.doFillSpaceConnectionNameItems(context);
         }
 
         @POST
         public HttpResponse doFillProjectKeyItems(@AncestorInPath Item context, @QueryParameter String spaceConnection) {
             if (spaceConnection.isBlank())
                 return new ListBoxModel();
-            return scmParamsProvider.doFillProjectKeyItems(context,null, spaceConnection);
+            return SpaceSCMParamsProvider.INSTANCE.doFillProjectKeyItems(context,null, spaceConnection);
         }
 
         @POST

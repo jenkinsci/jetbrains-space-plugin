@@ -3,6 +3,7 @@ package org.jetbrains.space.jenkins.steps;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.Nullable;
 import hudson.Extension;
+import hudson.ExtensionList;
 import hudson.model.Item;
 import hudson.model.Run;
 import hudson.model.TaskListener;
@@ -20,7 +21,6 @@ import org.kohsuke.stapler.verb.POST;
 import space.jetbrains.api.runtime.types.CommitExecutionStatus;
 
 import javax.annotation.CheckForNull;
-import javax.inject.Inject;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -134,19 +134,13 @@ public class ReportBuildStatusStep extends Step {
         return ReportBuildStatusStepExecution.Companion.start(
                 this,
                 context,
-                ((DescriptorImpl) getDescriptor()).spacePluginConfiguration
+                ExtensionList.lookupSingleton(SpacePluginConfiguration.class)
         );
     }
 
     @SuppressWarnings("unused")
     @Extension
     public static class DescriptorImpl extends StepDescriptor {
-
-        @Inject
-        private SpacePluginConfiguration spacePluginConfiguration;
-
-        @Inject
-        private SpaceSCMParamsProvider scmParamsProvider;
 
         @Override
         public @NonNull String getDisplayName() {
@@ -165,21 +159,21 @@ public class ReportBuildStatusStep extends Step {
 
         @POST
         public ListBoxModel doFillSpaceConnectionItems(@AncestorInPath Item context) {
-            return scmParamsProvider.doFillSpaceConnectionNameItems(context);
+            return SpaceSCMParamsProvider.INSTANCE.doFillSpaceConnectionNameItems(context);
         }
 
         @POST
         public HttpResponse doFillProjectKeyItems(@AncestorInPath Item context, @QueryParameter String spaceConnection) {
             if (spaceConnection.isBlank())
                 return new ListBoxModel();
-            return scmParamsProvider.doFillProjectKeyItems(context, null, spaceConnection);
+            return SpaceSCMParamsProvider.INSTANCE.doFillProjectKeyItems(context, null, spaceConnection);
         }
 
         @POST
         public HttpResponse doFillRepositoryItems(@AncestorInPath Item context, @QueryParameter String spaceConnection, @QueryParameter String projectKey) {
             if (spaceConnection.isBlank())
                 return new ListBoxModel();
-            return scmParamsProvider.doFillRepositoryNameItems(context, null, spaceConnection, projectKey);
+            return SpaceSCMParamsProvider.INSTANCE.doFillRepositoryNameItems(context, null, spaceConnection, projectKey);
         }
 
         @POST

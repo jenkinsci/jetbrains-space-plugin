@@ -1,5 +1,6 @@
 package org.jetbrains.space.jenkins.trigger
 
+import hudson.ExtensionList
 import jenkins.model.*
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.space.jenkins.config.*
@@ -28,8 +29,7 @@ fun SpaceWebhookTrigger.ensureAndGetSpaceWebhookId(jenkinsProjectName: String): 
     if (id == null)
         return null
 
-    val spaceConnection =
-        (descriptor as SpaceWebhookTrigger.DescriptorImpl).spacePluginConfiguration.getConnectionById(spaceConnectionId)
+    val spaceConnection = ExtensionList.lookupSingleton(SpacePluginConfiguration::class.java).getConnectionById(spaceConnectionId)
     if (spaceConnection == null) {
         LOGGER.warning("Space connection not found by id = $spaceConnectionId")
         return null
