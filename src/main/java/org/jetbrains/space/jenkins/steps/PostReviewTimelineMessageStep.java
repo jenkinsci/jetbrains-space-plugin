@@ -41,7 +41,6 @@ public class PostReviewTimelineMessageStep extends Step {
 
     private final String messageText;
     private String spaceConnection;
-    private String spaceConnectionId;
     // lgtm[jenkins/plaintext-storage]
     private String projectKey;
     private Integer mergeRequestNumber;
@@ -69,15 +68,6 @@ public class PostReviewTimelineMessageStep extends Step {
     @DataBoundSetter
     public void setSpaceConnection(String spaceConnection) {
         this.spaceConnection = spaceConnection;
-    }
-
-    public String getSpaceConnectionId() {
-        return spaceConnectionId;
-    }
-
-    @DataBoundSetter
-    public void setSpaceConnectionId(String spaceConnectionId) {
-        this.spaceConnectionId = spaceConnectionId;
     }
 
     public String getProjectKey() {
@@ -119,14 +109,14 @@ public class PostReviewTimelineMessageStep extends Step {
 
         @POST
         public ListBoxModel doFillSpaceConnectionItems(@AncestorInPath Item context) {
-            return SpaceSCMParamsProvider.INSTANCE.doFillSpaceConnectionNameItems(context);
+            return SpaceSCMParamsProvider.INSTANCE.doFillSpaceConnectionItems(context);
         }
 
         @POST
         public HttpResponse doFillProjectKeyItems(@AncestorInPath Item context, @QueryParameter String spaceConnection) {
             if (spaceConnection.isBlank())
                 return new ListBoxModel();
-            return SpaceSCMParamsProvider.INSTANCE.doFillProjectKeyItems(context,null, spaceConnection);
+            return SpaceSCMParamsProvider.INSTANCE.doFillProjectKeyItems(context, spaceConnection);
         }
 
         @POST

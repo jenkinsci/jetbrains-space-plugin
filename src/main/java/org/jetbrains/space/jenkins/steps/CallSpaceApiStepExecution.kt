@@ -14,7 +14,6 @@ import org.jenkinsci.plugins.workflow.steps.StepExecution
 import org.jetbrains.space.jenkins.config.SpacePluginConfiguration
 import org.jetbrains.space.jenkins.config.getApiClient
 import org.jetbrains.space.jenkins.config.getConnectionById
-import org.jetbrains.space.jenkins.config.getConnectionByIdOrName
 import org.jetbrains.space.jenkins.listeners.SpaceGitScmCheckoutAction
 import org.jetbrains.space.jenkins.trigger.SpaceWebhookTriggerCause
 import space.jetbrains.api.runtime.*
@@ -46,10 +45,10 @@ class CallSpaceApiStepExecution(
             val checkoutAction = build.getAction(SpaceGitScmCheckoutAction::class.java)
 
             val connection = when {
-                step.spaceConnectionId != null || step.spaceConnection != null -> {
-                    spacePluginConfiguration.getConnectionByIdOrName(step.spaceConnectionId, step.spaceConnection)
+                step.spaceConnection != null -> {
+                    spacePluginConfiguration.getConnectionById(step.spaceConnection)
                         ?: return FailureStepExecution(
-                            "No Space connection found by specified id or name",
+                            "No Space connection found by specified id",
                             context
                         )
                 }

@@ -15,7 +15,6 @@ import java.net.URLEncoder
  */
 data class SpaceGitScmCheckoutAction(
     val spaceConnectionId: String,
-    val spaceConnectionName: String,
     val spaceUrl: String,
     @field:SuppressWarnings("lgtm[jenkins/plaintext-storage]")
     val projectKey: String,

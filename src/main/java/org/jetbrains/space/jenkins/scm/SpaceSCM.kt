@@ -6,13 +6,11 @@ import hudson.model.Run
 import hudson.model.StringParameterValue
 import hudson.plugins.git.BranchSpec
 import hudson.plugins.git.GitSCM
-import hudson.plugins.git.GitTool
 import hudson.plugins.git.extensions.GitSCMExtension
 import jenkins.triggers.TriggeredItem
 import kotlinx.coroutines.runBlocking
 import org.jenkinsci.plugins.structs.describable.DescribableModel
 import org.jenkinsci.plugins.structs.describable.UninstantiatedDescribable
-import org.jetbrains.space.jenkins.config.SpaceConnection
 import org.jetbrains.space.jenkins.config.SpacePluginConfiguration
 import org.jetbrains.space.jenkins.config.getApiClient
 import org.jetbrains.space.jenkins.config.getUserRemoteConfig
@@ -20,7 +18,6 @@ import org.jetbrains.space.jenkins.listeners.SpaceGitCheckoutParams
 import org.jetbrains.space.jenkins.listeners.getSpaceGitCheckoutParams
 import org.jetbrains.space.jenkins.listeners.mergeRequestFields
 import org.jetbrains.space.jenkins.trigger.SpaceWebhookTrigger
-import org.jetbrains.space.jenkins.trigger.SpaceWebhookTriggerCause
 import org.kohsuke.stapler.DataBoundConstructor
 import space.jetbrains.api.runtime.resources.projects
 import space.jetbrains.api.runtime.types.MergeRequestRecord
@@ -71,7 +68,6 @@ fun getSpaceWebhookTrigger(job: Job<*, *>) =
  */
 @Suppress("unused")
 class PlainSpaceSCM @DataBoundConstructor constructor(
-    val spaceConnectionId: String?,
     val spaceConnection: String?,
     @field:SuppressWarnings("lgtm[jenkins/plaintext-storage]")
     val projectKey: String?,
@@ -83,18 +79,13 @@ class PlainSpaceSCM @DataBoundConstructor constructor(
 ) {
     companion object {
         fun wrapCustomSpaceConnectionParams(args: Map<String, Any?>) = HashMap(args).apply {
-            val connectionId = args[CONNECTION_ID]
-            val connectionName = args[CONNECTION]
-            if (connectionId != null || connectionName != null) {
-                if (connectionId != null && connectionName != null)
-                    throw IllegalArgumentException("$CONNECTION_ID and $CONNECTION cannot be specified at the same time")
-
+            val connectionId = args[CONNECTION]
+            if (connectionId != null) {
                 put(
                     CUSTOM_SPACE_CONNECTION,
                     UninstantiatedDescribable(
                         HashMap(args).apply {
-                            connectionId?.let { put(CONNECTION_ID, it) }
-                            connectionName?.let { put(CONNECTION, it) }
+                            put(CONNECTION, connectionId)
                             copyFrom(args, PROJECT_KEY)
                             copyFrom(args, REPOSITORY)
                             copyFrom(args, BRANCHES, required = false)
@@ -106,7 +97,7 @@ class PlainSpaceSCM @DataBoundConstructor constructor(
                 checkParameterAbsence(args, REPOSITORY)
                 checkParameterAbsence(args, BRANCHES)
             }
-            listOf(CONNECTION_ID, CONNECTION, PROJECT_KEY, REPOSITORY, BRANCHES).forEach {
+            listOf(CONNECTION, PROJECT_KEY, REPOSITORY, BRANCHES).forEach {
                 remove(it)
             }
         }
@@ -161,7 +152,6 @@ private fun checkParameterAbsence(args: Map<String, Any?>, key: String) {
 }
 
 private const val CUSTOM_SPACE_CONNECTION = "customSpaceConnection"
-private const val CONNECTION_ID = "spaceConnectionId"
 private const val CONNECTION = "spaceConnection"
 @field:SuppressWarnings("lgtm[jenkins/plaintext-storage]")
 private const val PROJECT_KEY = "projectKey"

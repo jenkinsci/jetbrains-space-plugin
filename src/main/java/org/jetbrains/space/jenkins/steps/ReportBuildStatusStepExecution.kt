@@ -1,6 +1,5 @@
 package org.jetbrains.space.jenkins.steps
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings
 import hudson.ExtensionList
 import hudson.model.CauseAction
 import hudson.model.Run
@@ -12,7 +11,6 @@ import org.jenkinsci.plugins.workflow.steps.StepExecution
 import org.jetbrains.space.jenkins.config.SpacePluginConfiguration
 import org.jetbrains.space.jenkins.config.getApiClient
 import org.jetbrains.space.jenkins.config.getConnectionById
-import org.jetbrains.space.jenkins.config.getConnectionByIdOrName
 import org.jetbrains.space.jenkins.listeners.SpaceGitScmCheckoutAction
 import org.jetbrains.space.jenkins.trigger.BuildIdPrefix
 import org.jetbrains.space.jenkins.trigger.SpaceWebhookTriggerCause
@@ -54,10 +52,10 @@ class ReportBuildStatusStepExecution(
             val checkoutAction = build.getAction(SpaceGitScmCheckoutAction::class.java)
 
             val (connection, projectKey, repositoryName) = when {
-                step.spaceConnectionId != null || step.spaceConnection != null -> {
-                    val connection = spacePluginConfiguration.getConnectionByIdOrName(step.spaceConnectionId, step.spaceConnection)
+                step.spaceConnection != null -> {
+                    val connection = spacePluginConfiguration.getConnectionById(step.spaceConnection)
                         ?: return FailureStepExecution(
-                            "No Space connection found by specified id or name",
+                            "No Space connection found by specified id",
                             context
                         )
                     val projectKey = step.projectKey

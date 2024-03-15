@@ -1,7 +1,6 @@
 package org.jetbrains.space.jenkins.scm
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings
-import hudson.Extension
 import hudson.ExtensionList
 import hudson.model.Item
 import hudson.util.ListBoxModel
@@ -9,7 +8,7 @@ import jenkins.model.Jenkins
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.space.jenkins.config.SpacePluginConfiguration
 import org.jetbrains.space.jenkins.config.getApiClient
-import org.jetbrains.space.jenkins.config.getConnectionByIdOrName
+import org.jetbrains.space.jenkins.config.getConnectionById
 import org.kohsuke.stapler.HttpResponse
 import org.kohsuke.stapler.HttpResponses
 import space.jetbrains.api.runtime.resources.projects
@@ -22,37 +21,24 @@ import java.util.logging.Logger
 @SuppressWarnings("lgtm[jenkins/csrf]")
 object SpaceSCMParamsProvider {
 
-    fun doFillSpaceConnectionIdItems(context: Item?): ListBoxModel {
+    fun doFillSpaceConnectionItems(context: Item?): ListBoxModel {
         if (context != null) {
             context.checkPermission(Item.EXTENDED_READ)
         } else {
             Jenkins.get().checkPermission(Jenkins.ADMINISTER)
         }
-        return ListBoxModel(ExtensionList.lookupSingleton(SpacePluginConfiguration::class.java).connections.map { ListBoxModel.Option(it.name, it.id) })
-    }
-
-    fun doFillSpaceConnectionNameItems(context: Item?): ListBoxModel {
-        if (context != null) {
-            context.checkPermission(Item.EXTENDED_READ)
-        } else {
-            Jenkins.get().checkPermission(Jenkins.ADMINISTER)
-        }
-        return ListBoxModel(ExtensionList.lookupSingleton(SpacePluginConfiguration::class.java).connections.map { ListBoxModel.Option(it.name) })
+        return ListBoxModel(ExtensionList.lookupSingleton(SpacePluginConfiguration::class.java).connections.map { ListBoxModel.Option(it.id) })
     }
 
     fun doFillProjectKeyItems(context: Item?, spaceConnectionId: String?): HttpResponse {
-        return doFillProjectKeyItems(context, spaceConnectionId = spaceConnectionId, spaceConnectionName = null)
-    }
-
-    fun doFillProjectKeyItems(context: Item?, spaceConnectionId: String?, spaceConnectionName: String?): HttpResponse {
         if (context != null) {
             context.checkPermission(Item.EXTENDED_READ)
         } else {
             Jenkins.get().checkPermission(Jenkins.ADMINISTER)
         }
 
-        if (spaceConnectionId == null && spaceConnectionName == null) {
-            val firstConnectionId = doFillSpaceConnectionIdItems(context).firstOrNull()?.value
+        if (spaceConnectionId == null) {
+            val firstConnectionId = doFillSpaceConnectionItems(context).firstOrNull()?.value
                 ?: return HttpResponses.errorWithoutStack(
                     HttpURLConnection.HTTP_BAD_REQUEST,
                     "No Space connections configured for Jenkins"
@@ -60,7 +46,7 @@ object SpaceSCMParamsProvider {
             return doFillProjectKeyItems(context, firstConnectionId)
         }
 
-        if (spaceConnectionId.isNullOrBlank() && spaceConnectionName.isNullOrBlank()) {
+        if (spaceConnectionId.isNullOrBlank()) {
             return HttpResponses.errorWithoutStack(
                 HttpURLConnection.HTTP_BAD_REQUEST,
                 "Space connection is not selected"
@@ -68,7 +54,7 @@ object SpaceSCMParamsProvider {
         }
 
         val spaceApiClient = ExtensionList.lookupSingleton(SpacePluginConfiguration::class.java)
-            .getConnectionByIdOrName(spaceConnectionId, spaceConnectionName)
+            .getConnectionById(spaceConnectionId)
             ?.getApiClient()
             ?: return HttpResponses.errorWithoutStack(
                 HttpURLConnection.HTTP_BAD_REQUEST,
@@ -97,23 +83,13 @@ object SpaceSCMParamsProvider {
         }
     }
 
-    fun doFillRepositoryNameItems(context: Item?, spaceConnectionId: String?, projectKey: String?): HttpResponse {
-        return doFillRepositoryNameItems(
-            context,
-            spaceConnectionId = spaceConnectionId,
-            spaceConnectionName = null,
-            projectKey = projectKey
-        )
-    }
-
     fun doFillRepositoryNameItems(
         context: Item?,
         spaceConnectionId: String?,
-        spaceConnectionName: String?,
         projectKey: String?
     ): HttpResponse {
-        if (spaceConnectionId == null && spaceConnectionName == null) {
-            val firstConnectionId = doFillSpaceConnectionIdItems(context).firstOrNull()?.value
+        if (spaceConnectionId == null) {
+            val firstConnectionId = doFillSpaceConnectionItems(context).firstOrNull()?.value
                 ?: return HttpResponses.errorWithoutStack(
                     HttpURLConnection.HTTP_BAD_REQUEST,
                     "No Space connections configured for Jenkins"
@@ -123,7 +99,7 @@ object SpaceSCMParamsProvider {
             return doFillRepositoryNameItems(context, firstConnectionId, firstProjectKey)
         }
 
-        if (spaceConnectionId.isNullOrBlank() && spaceConnectionName.isNullOrBlank()) {
+        if (spaceConnectionId.isNullOrBlank()) {
             return HttpResponses.errorWithoutStack(
                 HttpURLConnection.HTTP_BAD_REQUEST,
                 "Space connection is not selected"
@@ -135,7 +111,7 @@ object SpaceSCMParamsProvider {
         }
 
         val spaceApiClient = ExtensionList.lookupSingleton(SpacePluginConfiguration::class.java)
-            .getConnectionByIdOrName(spaceConnectionId, spaceConnectionName)
+            .getConnectionById(spaceConnectionId)
             ?.getApiClient()
             ?: return HttpResponses.errorWithoutStack(
                 HttpURLConnection.HTTP_BAD_REQUEST,

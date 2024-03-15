@@ -42,10 +42,10 @@ class PostReviewTimelineMessageStepExecution(
             val checkoutAction = build.getAction(SpaceGitScmCheckoutAction::class.java)
 
             val (connection, projectKey) = when {
-                step.spaceConnectionId != null || step.spaceConnection != null -> {
-                    val connection = spacePluginConfiguration.getConnectionByIdOrName(step.spaceConnectionId, step.spaceConnection)
+                step.spaceConnection != null -> {
+                    val connection = spacePluginConfiguration.getConnectionById(step.spaceConnection)
                         ?: return FailureStepExecution(
-                            "No Space connection found by specified id or name",
+                            "No Space connection found by specified id",
                             context
                         )
                     val projectKey = step.projectKey

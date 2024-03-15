@@ -93,8 +93,8 @@ public class SpaceSCM extends SCM {
         if (customSpaceConnection == null)
             return null;
 
-        SpaceConnection spaceConnection = UtilsKt.getConnectionByIdOrName(
-                ExtensionList.lookupSingleton(SpacePluginConfiguration.class), customSpaceConnection.spaceConnectionId, customSpaceConnection.spaceConnection);
+        SpaceConnection spaceConnection = UtilsKt.getConnectionById(
+                ExtensionList.lookupSingleton(SpacePluginConfiguration.class), customSpaceConnection.spaceConnection);
         return (spaceConnection != null)
                 ? new SpaceRepositoryBrowser(spaceConnection, customSpaceConnection.projectKey, customSpaceConnection.repository)
                 : null;
@@ -210,17 +210,17 @@ public class SpaceSCM extends SCM {
 
         @POST
         public ListBoxModel doFillSpaceConnectionItems(@AncestorInPath Item context) {
-            return SpaceSCMParamsProvider.INSTANCE.doFillSpaceConnectionNameItems(context);
+            return SpaceSCMParamsProvider.INSTANCE.doFillSpaceConnectionItems(context);
         }
 
         @POST
         public HttpResponse doFillProjectKeyItems(@AncestorInPath Item context, @QueryParameter String spaceConnection) {
-            return SpaceSCMParamsProvider.INSTANCE.doFillProjectKeyItems(context, null, spaceConnection);
+            return SpaceSCMParamsProvider.INSTANCE.doFillProjectKeyItems(context, spaceConnection);
         }
 
         @POST
         public HttpResponse doFillRepositoryItems(@AncestorInPath Item context, @QueryParameter String spaceConnection, @QueryParameter String projectKey) {
-            return SpaceSCMParamsProvider.INSTANCE.doFillRepositoryNameItems(context, null, spaceConnection, projectKey);
+            return SpaceSCMParamsProvider.INSTANCE.doFillRepositoryNameItems(context, spaceConnection, projectKey);
         }
 
         @POST
@@ -247,7 +247,6 @@ public class SpaceSCM extends SCM {
      * Optional for {@link SpaceSCM}, when missing those parameters will be taken from the build trigger configuration.
      */
     public static class CustomSpaceConnection {
-        private final String spaceConnectionId;
         private final String spaceConnection;
         // lgtm[jenkins/plaintext-storage]
         private final String projectKey;
@@ -255,16 +254,11 @@ public class SpaceSCM extends SCM {
         private final List<BranchSpec> branches;
 
         @DataBoundConstructor
-        public CustomSpaceConnection(String spaceConnectionId, String spaceConnection, String projectKey, String repository, List<BranchSpec> branches) {
-            this.spaceConnectionId = spaceConnectionId;
+        public CustomSpaceConnection(String spaceConnection, String projectKey, String repository, List<BranchSpec> branches) {
             this.spaceConnection = spaceConnection;
             this.projectKey = projectKey;
             this.repository = repository;
             this.branches = branches;
-        }
-
-        public String getSpaceConnectionId() {
-            return spaceConnectionId;
         }
 
         public String getSpaceConnection() {

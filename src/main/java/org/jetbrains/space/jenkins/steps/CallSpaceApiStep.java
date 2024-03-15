@@ -51,7 +51,6 @@ public class CallSpaceApiStep extends Step {
     private final String requestUrl;
     private final @Nullable String requestBody;
     private String spaceConnection;
-    private String spaceConnectionId;
 
     @DataBoundConstructor
     public CallSpaceApiStep(String httpMethod, String requestUrl, @Nullable String requestBody) {
@@ -86,15 +85,6 @@ public class CallSpaceApiStep extends Step {
         this.spaceConnection = spaceConnection;
     }
 
-    public String getSpaceConnectionId() {
-        return spaceConnectionId;
-    }
-
-    @DataBoundSetter
-    public void setSpaceConnectionId(String spaceConnectionId) {
-        this.spaceConnectionId = spaceConnectionId;
-    }
-
     @SuppressWarnings("unused")
     @Extension
     public static class DescriptorImpl extends StepDescriptor {
@@ -124,7 +114,7 @@ public class CallSpaceApiStep extends Step {
 
         @POST
         public ListBoxModel doFillSpaceConnectionItems(@AncestorInPath Item context) {
-            return SpaceSCMParamsProvider.INSTANCE.doFillSpaceConnectionNameItems(context);
+            return SpaceSCMParamsProvider.INSTANCE.doFillSpaceConnectionItems(context);
         }
 
         @Override

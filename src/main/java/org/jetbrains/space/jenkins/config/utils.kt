@@ -89,19 +89,8 @@ fun SpacePluginConfiguration.getConnectionByClientId(clientId: String): SpaceCon
     return connections.firstOrNull { it.apiCredentialId == creds.id }
 }
 
-fun SpacePluginConfiguration.getConnectionById(id: String): SpaceConnection? {
-    return if (id.isNotBlank()) connections.firstOrNull { it.id == id } else null
-}
-
-fun SpacePluginConfiguration.getConnectionByIdOrName(id: String?, name: String?): SpaceConnection? {
-    return when {
-        !id.isNullOrBlank() ->
-            connections.firstOrNull { it.id == id }
-        !name.isNullOrBlank() ->
-            connections.firstOrNull { it.name == name }
-        else ->
-            null
-    }
+fun SpacePluginConfiguration.getConnectionById(id: String?): SpaceConnection? {
+    return if (id != null && id.isNotBlank()) connections.firstOrNull { it.id == id } else null
 }
 
 fun checkPermissions(context: Item?) {
