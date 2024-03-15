@@ -143,8 +143,8 @@ On Space side, safe merge should be configured in `safe-merge.json` file that is
     "builds": [
         {
             "jenkins": {
-                // name of the Space application created when setting up Jenkins integration in Space 
-                "instance": "Jenkins",
+                // name of the Jenkins connection configured in Space 
+                "connection-name": "Jenkins",
                 // full name of the Jenkins job or workflow, including all the parent folders if any
                 "project": "Folder/NestedJob"
             }
