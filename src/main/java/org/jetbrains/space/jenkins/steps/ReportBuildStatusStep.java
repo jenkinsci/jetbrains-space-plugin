@@ -44,7 +44,6 @@ public class ReportBuildStatusStep extends Step {
 
     private CommitExecutionStatus buildStatus;
     private String spaceConnection;
-    private String spaceConnectionId;
     // lgtm[jenkins/plaintext-storage]
     private String projectKey;
     private String repository;
@@ -61,6 +60,7 @@ public class ReportBuildStatusStep extends Step {
         return (value != null && !value.isBlank()) ? value : null;
     }
 
+    @CheckForNull
     public String getSpaceConnection() {
         return spaceConnection;
     }
@@ -68,16 +68,6 @@ public class ReportBuildStatusStep extends Step {
     @DataBoundSetter
     public void setSpaceConnection(String spaceConnection) {
         this.spaceConnection = blankToNull(spaceConnection);
-    }
-
-    @CheckForNull
-    public String getSpaceConnectionId() {
-        return spaceConnectionId;
-    }
-
-    @DataBoundSetter
-    public void setSpaceConnectionId(String spaceConnectionId) {
-        this.spaceConnectionId = blankToNull(spaceConnectionId);
     }
 
     @CheckForNull
@@ -159,21 +149,21 @@ public class ReportBuildStatusStep extends Step {
 
         @POST
         public ListBoxModel doFillSpaceConnectionItems(@AncestorInPath Item context) {
-            return SpaceSCMParamsProvider.INSTANCE.doFillSpaceConnectionNameItems(context);
+            return SpaceSCMParamsProvider.INSTANCE.doFillSpaceConnectionItems(context);
         }
 
         @POST
         public HttpResponse doFillProjectKeyItems(@AncestorInPath Item context, @QueryParameter String spaceConnection) {
             if (spaceConnection.isBlank())
                 return new ListBoxModel();
-            return SpaceSCMParamsProvider.INSTANCE.doFillProjectKeyItems(context, null, spaceConnection);
+            return SpaceSCMParamsProvider.INSTANCE.doFillProjectKeyItems(context, spaceConnection);
         }
 
         @POST
         public HttpResponse doFillRepositoryItems(@AncestorInPath Item context, @QueryParameter String spaceConnection, @QueryParameter String projectKey) {
             if (spaceConnection.isBlank())
                 return new ListBoxModel();
-            return SpaceSCMParamsProvider.INSTANCE.doFillRepositoryNameItems(context, null, spaceConnection, projectKey);
+            return SpaceSCMParamsProvider.INSTANCE.doFillRepositoryNameItems(context, spaceConnection, projectKey);
         }
 
         @POST

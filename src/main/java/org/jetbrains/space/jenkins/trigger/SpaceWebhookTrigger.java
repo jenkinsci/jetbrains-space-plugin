@@ -1,7 +1,6 @@
 package org.jetbrains.space.jenkins.trigger;
 
 import hudson.Extension;
-import hudson.ExtensionList;
 import hudson.model.Item;
 import hudson.model.Job;
 import hudson.triggers.Trigger;
@@ -171,7 +170,7 @@ public class SpaceWebhookTrigger extends Trigger<Job<?, ?>> {
 
         @POST
         public ListBoxModel doFillSpaceConnectionIdItems(@AncestorInPath Item context) {
-            return SpaceSCMParamsProvider.INSTANCE.doFillSpaceConnectionIdItems(context);
+            return SpaceSCMParamsProvider.INSTANCE.doFillSpaceConnectionItems(context);
         }
 
         @POST

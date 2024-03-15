@@ -28,15 +28,13 @@ import java.util.UUID;
 public class SpaceConnection extends AbstractDescribableImpl<SpaceConnection> {
 
     private final String id;
-    private final String name;
     private final String baseUrl;
     private final String apiCredentialId;
     private final String sshCredentialId;
 
     @DataBoundConstructor
-    public SpaceConnection(@Nullable String id, String name, String baseUrl, String apiCredentialId, String sshCredentialId) {
+    public SpaceConnection(@Nullable String id, String baseUrl, String apiCredentialId, String sshCredentialId) {
         this.id = StringUtils.isBlank(id) ? UUID.randomUUID().toString() : id;
-        this.name = name;
         this.baseUrl = baseUrl;
         this.apiCredentialId = apiCredentialId;
         this.sshCredentialId = sshCredentialId;
@@ -44,10 +42,6 @@ public class SpaceConnection extends AbstractDescribableImpl<SpaceConnection> {
 
     public String getId() {
         return id;
-    }
-
-    public String getName() {
-        return name;
     }
 
     public String getBaseUrl() {

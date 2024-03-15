@@ -71,7 +71,6 @@ fun onScmCheckout(build: Run<*, *>, scm: SCM, listener: TaskListener, spacePlugi
 
     val spaceGitCheckoutAction = SpaceGitScmCheckoutAction(
         spaceConnectionId = space.connection.id,
-        spaceConnectionName = space.connection.name,
         spaceUrl = space.connection.baseUrl,
         projectKey = space.projectKey,
         repositoryName = space.repositoryName,
@@ -100,14 +99,14 @@ fun onScmCheckout(build: Run<*, *>, scm: SCM, listener: TaskListener, spacePlugi
                 build.addAction(
                     a.copy(
                         sourceDisplayName = listOfNotNull(
-                            a.spaceConnectionName
+                            a.spaceConnectionId
                                 .takeIf { hasDistinctSpaceConnections },
                             a.projectKey
-                                .takeIf { allActions.hasDistinctProjects(a.spaceConnectionName) },
+                                .takeIf { allActions.hasDistinctProjects(a.spaceConnectionId) },
                             a.repositoryName
-                                .takeIf { allActions.hasDistinctRepos(a.spaceConnectionName, a.projectKey) },
+                                .takeIf { allActions.hasDistinctRepos(a.spaceConnectionId, a.projectKey) },
                             a.branch
-                                .takeIf { allActions.hasDistinctBranches(a.spaceConnectionName, a.projectKey, a.repositoryName) }
+                                .takeIf { allActions.hasDistinctBranches(a.spaceConnectionId, a.projectKey, a.repositoryName) }
                         ).takeUnless { it.isEmpty() }?.joinToString(" \\ ")
                     )
                 )
@@ -131,14 +130,14 @@ fun onScmCheckout(build: Run<*, *>, scm: SCM, listener: TaskListener, spacePlugi
     }
 }
 
-private fun List<SpaceGitScmCheckoutAction>.hasDistinctProjects(spaceConnectionName: String) =
-    filter { it.spaceConnectionName == spaceConnectionName }.distinctBy { it.projectKey }.size > 1
+private fun List<SpaceGitScmCheckoutAction>.hasDistinctProjects(spaceConnectionId: String) =
+    filter { it.spaceConnectionId == spaceConnectionId }.distinctBy { it.projectKey }.size > 1
 
-private fun List<SpaceGitScmCheckoutAction>.hasDistinctRepos(spaceConnectionName: String, projectKey: String) =
-    filter { it.spaceConnectionName == spaceConnectionName && it.projectKey == projectKey }.distinctBy { it.repositoryName }.size > 1
+private fun List<SpaceGitScmCheckoutAction>.hasDistinctRepos(spaceConnectionId: String, projectKey: String) =
+    filter { it.spaceConnectionId == spaceConnectionId && it.projectKey == projectKey }.distinctBy { it.repositoryName }.size > 1
 
-private fun List<SpaceGitScmCheckoutAction>.hasDistinctBranches(spaceConnectionName: String, projectKey: String, repositoryName: String) =
-    filter { it.spaceConnectionName == spaceConnectionName && it.projectKey == projectKey && it.repositoryName == repositoryName }.distinctBy { it.branch }.size > 1
+private fun List<SpaceGitScmCheckoutAction>.hasDistinctBranches(spaceConnectionId: String, projectKey: String, repositoryName: String) =
+    filter { it.spaceConnectionId == spaceConnectionId && it.projectKey == projectKey && it.repositoryName == repositoryName }.distinctBy { it.branch }.size > 1
 
 val mergeRequestFields: CodeReviewRecordPartial.() -> Unit = {
     id()
@@ -225,8 +224,8 @@ fun SpacePluginConfiguration.getSpaceGitCheckoutParams(scm: SpaceSCM, job: Job<*
     return when {
         customSpaceConnection != null -> {
             val params = SpaceGitCheckoutParams(
-                connection = getConnectionByIdOrName(customSpaceConnection.spaceConnectionId, customSpaceConnection.spaceConnection)
-                    ?: throw IllegalArgumentException("Specified JetBrains Space connection does not exist"),
+                connection = getConnectionById(customSpaceConnection.spaceConnection)
+                    ?: throw IllegalArgumentException("JetBrains Space connection with id \"${customSpaceConnection.spaceConnection}\" does not exist"),
                 projectKey = customSpaceConnection.projectKey,
                 repositoryName = customSpaceConnection.repository
             )
