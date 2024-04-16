@@ -3,6 +3,7 @@ package org.jetbrains.space.jenkins.trigger
 import groovy.json.JsonOutput
 import hudson.ExtensionList
 import hudson.model.CauseAction
+import hudson.security.ACL
 import io.ktor.http.*
 import io.ktor.utils.io.charsets.*
 import jenkins.model.Jenkins
@@ -80,54 +81,56 @@ fun SpaceWebhookEndpoint.doProcess(request: StaplerRequest, response: StaplerRes
  */
 @OptIn(ExperimentalSpaceSdkApi::class)
 private suspend fun ProcessingScope.processWebhookCallback(payload: WebhookRequestPayload): SpaceHttpResponse {
-    val allJobs = Jenkins.get().getAllItems(TriggeredItem::class.java)
-    val (job, trigger) = allJobs.findBySpaceWebhookId(payload.webhookId)
-        ?: run {
-            // fallback to fetching and parsing webhook name
-            clientWithClientCredentials().fetchWebhookById(payload.webhookId)
-                ?.let { getTriggerId(it) }
-                ?.let { allJobs.findByTriggerId(it) }
-                .also {
-                    if (it != null) {
-                        it.second.ensureSpaceWebhook(it.first.fullDisplayName)
-                    } else {
-                        LOGGER.warning("Trigger found for webhook id = ${payload.webhookId} found by fallback to webhook name")
+    return ACL.as2(ACL.SYSTEM2).use {
+        val allJobs = Jenkins.get().getAllItems(TriggeredItem::class.java)
+        val (job, trigger) = allJobs.findBySpaceWebhookId(payload.webhookId)
+            ?: run {
+                // fallback to fetching and parsing webhook name
+                clientWithClientCredentials().fetchWebhookById(payload.webhookId)
+                    ?.let { getTriggerId(it) }
+                    ?.let { allJobs.findByTriggerId(it) }
+                    .also {
+                        if (it != null) {
+                            it.second.ensureSpaceWebhook(it.first.fullDisplayName)
+                        } else {
+                            LOGGER.warning("Trigger found for webhook id = ${payload.webhookId} found by fallback to webhook name")
+                        }
                     }
-                }
-        }
-        ?: run {
-            LOGGER.warning("No registered trigger found for webhook id = ${payload.webhookId}")
+            }
+            ?: run {
+                LOGGER.warning("No registered trigger found for webhook id = ${payload.webhookId}")
+                return SpaceHttpResponse.RespondWithCode(HttpStatusCode.BadRequest)
+            }
+
+        val triggerItem = SCMTriggerItem.SCMTriggerItems.asSCMTriggerItem(job)
+        if (triggerItem == null) {
+            LOGGER.info("Cannot trigger item of type ${job::class.qualifiedName}")
             return SpaceHttpResponse.RespondWithCode(HttpStatusCode.BadRequest)
         }
 
-    val triggerItem = SCMTriggerItem.SCMTriggerItems.asSCMTriggerItem(job)
-    if (triggerItem == null) {
-        LOGGER.info("Cannot trigger item of type ${job::class.qualifiedName}")
-        return SpaceHttpResponse.RespondWithCode(HttpStatusCode.BadRequest)
-    }
+        val spacePluginConfiguration = ExtensionList.lookup(SpacePluginConfiguration::class.java).singleOrNull()
+            ?: error("Space plugin configuration cannot be resolved")
 
-    val spacePluginConfiguration = ExtensionList.lookup(SpacePluginConfiguration::class.java).singleOrNull()
-        ?: error("Space plugin configuration cannot be resolved")
+        val spaceConnection = spacePluginConfiguration.getConnectionByClientId(payload.clientId)
+            ?: error("Space connection cannot be found for client id specified in webhook payload")
 
-    val spaceConnection = spacePluginConfiguration.getConnectionByClientId(payload.clientId)
-        ?: error("Space connection cannot be found for client id specified in webhook payload")
+        // deep check of event properties and trigger conditions to ensure that build should be triggered
+        val result = getTriggeredBuildCause(trigger, payload.payload, spaceConnection)
+        when (result) {
+            is WebhookEventResult.RunBuild -> {
+                val causeAction = CauseAction(result.cause)
+                triggerItem.scheduleBuild2(triggerItem.quietPeriod, causeAction)
+                SpaceHttpResponse.RespondWithOk
+            }
 
-    // deep check of event properties and trigger conditions to ensure that build should be triggered
-    val result = getTriggeredBuildCause(trigger, payload.payload, spaceConnection)
-    return when (result) {
-        is WebhookEventResult.RunBuild -> {
-            val causeAction = CauseAction(result.cause)
-            triggerItem.scheduleBuild2(triggerItem.quietPeriod, causeAction)
-            SpaceHttpResponse.RespondWithOk
+            is WebhookEventResult.UnexpectedEvent -> {
+                trigger.ensureSpaceWebhook(job.fullDisplayName)
+                SpaceHttpResponse.RespondWithCode(HttpStatusCode.BadRequest)
+            }
+
+            is WebhookEventResult.IgnoredEvent ->
+                SpaceHttpResponse.RespondWithCode(HttpStatusCode.Accepted)
         }
-
-        is WebhookEventResult.UnexpectedEvent -> {
-            trigger.ensureSpaceWebhook(job.fullDisplayName)
-            SpaceHttpResponse.RespondWithCode(HttpStatusCode.BadRequest)
-        }
-
-        is WebhookEventResult.IgnoredEvent ->
-            SpaceHttpResponse.RespondWithCode(HttpStatusCode.Accepted)
     }
 }
 

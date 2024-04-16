@@ -7,6 +7,7 @@ import hudson.model.Queue.Task
 import hudson.model.queue.ScheduleResult.Created
 import hudson.model.queue.ScheduleResult.Existing
 import hudson.model.queue.ScheduleResult.Refused
+import hudson.security.ACL
 import io.ktor.http.*
 import jenkins.model.Jenkins
 import jenkins.triggers.SCMTriggerItem
@@ -40,7 +41,7 @@ suspend fun ProcessingScope.startSafeMerge(clientId: String, command: SafeMergeC
     val spaceConnection = getSpaceConnectionByClientId(clientId)
         ?: return SpaceHttpResponse.RespondWithCode(HttpStatusCode.Unauthorized)
 
-    val job = Jenkins.get().getItemByFullName(command.project)
+    val job = ACL.as2(ACL.SYSTEM2).use { Jenkins.get().getItemByFullName(command.project) }
         ?: return SpaceHttpResponse.RespondWithCode(HttpStatusCode.NotFound)
 
     (job as? Queue.Task)
