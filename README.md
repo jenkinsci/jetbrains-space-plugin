@@ -1,6 +1,8 @@
-# JetBrains Space plugin for Jenkins
+# JetBrains Space plugin for Jenkins (WIP)
 
 [![JetBrains incubator project](https://jb.gg/badges/incubator-flat-square.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub)
+
+> **Work in progress** - the integration between JetBrains Space and Jenkins is currently being developed and will soon be ready to use
 
 ## About
 
