@@ -1,19 +1,17 @@
 package org.jetbrains.space.jenkins.trigger
 
 import hudson.model.Cause
-import org.jetbrains.space.jenkins.config.SpaceConnection
 import org.jetbrains.space.jenkins.steps.*
 import space.jetbrains.api.runtime.types.MergeRequestRecord
 
 /**
- * Represents the cause of a build triggered by a Space event or safe merge command.
+ * Represents the cause of a build triggered by a SpaceCode event or safe merge command.
  * This cause is stored in the build metadata and is available to all the other parts of the job processing pipeline.
  *
- * Specifically, it is used to inject Space-related environment variables and to get default Space connection parameters
+ * Specifically, it is used to inject SpaceCode-related environment variables and to get default SpaceCode connection parameters
  * and merge request number for [ReportBuildStatusStep] and [PostReviewTimelineMessageStep].
  */
 class SpaceWebhookTriggerCause(
-    val spaceConnectionId: String,
     val spaceUrl: String,
     val projectKey: String,
     val repositoryName: String,
@@ -22,14 +20,13 @@ class SpaceWebhookTriggerCause(
 ) : Cause() {
 
     companion object {
-        fun fromMergeRequest(mergeRequest: MergeRequestRecord, spaceConnection: SpaceConnection, safeMerge: TriggerCauseSafeMerge? = null) =
+        fun fromMergeRequest(mergeRequest: MergeRequestRecord, spaceUrl: String, safeMerge: TriggerCauseSafeMerge? = null) =
             SpaceWebhookTriggerCause(
-                spaceConnectionId = spaceConnection.id,
-                spaceUrl = spaceConnection.baseUrl,
+                spaceUrl = spaceUrl,
                 projectKey = mergeRequest.project.key,
                 repositoryName = mergeRequest.branchPairs.firstOrNull()?.repository.orEmpty(),
                 triggerType = SpaceWebhookTriggerType.MergeRequests,
-                cause = TriggerCause.fromMergeRequest(mergeRequest, spaceConnection, safeMerge)
+                cause = TriggerCause.fromMergeRequest(mergeRequest, spaceUrl, safeMerge)
             )
     }
 
@@ -60,7 +57,7 @@ class SpaceWebhookTriggerCause(
  */
 sealed interface TriggerCause {
     companion object {
-        fun fromMergeRequest(mergeRequest: MergeRequestRecord, spaceConnection: SpaceConnection, safeMerge: TriggerCauseSafeMerge? = null): MergeRequest {
+        fun fromMergeRequest(mergeRequest: MergeRequestRecord, spaceUrl: String, safeMerge: TriggerCauseSafeMerge? = null): MergeRequest {
             val branchPair = mergeRequest.branchPairs.firstOrNull()
             return TriggerCause.MergeRequest(
                 projectKey = mergeRequest.project.key,
@@ -69,8 +66,9 @@ sealed interface TriggerCause {
                 title = mergeRequest.title,
                 repository = branchPair?.repository,
                 sourceBranch = branchPair?.sourceBranchInfo?.head,
+                sourceBranchRef = branchPair?.sourceBranchInfo?.ref,
                 targetBranch = branchPair?.targetBranchInfo?.head,
-                url = "${spaceConnection.baseUrl}/p/${mergeRequest.project.key}/reviews/${mergeRequest.number}",
+                url = "${spaceUrl}/p/${mergeRequest.project.key}/repositories/${branchPair?.repository}/reviews/${mergeRequest.number}",
                 safeMerge = safeMerge
             )
         }
@@ -83,11 +81,12 @@ sealed interface TriggerCause {
         val title: String,
         val repository: String?,
         val sourceBranch: String?,
+        val sourceBranchRef: String?,
         val targetBranch: String?,
         val url: String,
         val safeMerge: TriggerCauseSafeMerge? = null
     ): TriggerCause {
-        override val commitId = safeMerge?.safeMergeCommit
+        override val commitId = safeMerge?.safeMergeCommit ?: sourceBranchRef
 
         override val branchForCheckout =
             safeMerge?.safeMergeBranch ?: sourceBranch ?: error("source branch for the merge request not specified")
@@ -108,10 +107,10 @@ sealed interface TriggerCause {
 /**
  * Contains information about the merge request safe merge operation that triggered the build
  *
- * @param safeMergeBranch Temporary branch created by Space for merging merge request source into target and running checks
+ * @param safeMergeBranch Temporary branch created by SpaceCode for merging merge request source into target and running checks
  * @param safeMergeCommit Temporary merge commit pointed to by the temporary merge branch
- * @param isDryRun Whether Space will run the build to perform the checks without actually merging source branch into target even if all checks succeed
- * @param startedByUserId Id of the Space user that initiated safe merge operation
+ * @param isDryRun Whether SpaceCode will run the build to perform the checks without actually merging source branch into target even if all checks succeed
+ * @param startedByUserId Id of the SpaceCode user that initiated safe merge operation
  */
 data class TriggerCauseSafeMerge(
     val safeMergeBranch: String,

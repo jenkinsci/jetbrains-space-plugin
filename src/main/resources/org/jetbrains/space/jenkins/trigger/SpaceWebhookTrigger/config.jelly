@@ -1,20 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
-    <f:invisibleEntry>
-        <f:textbox field="id" />
-    </f:invisibleEntry>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:l="/lib/layout" xmlns:st="jelly:stapler">
 
-    <f:entry title="JetBrains Space connection" field="spaceConnectionId">
-        <f:select clazz="jb-space-autofill jb-space-cache" />
-    </f:entry>
+    <script type="text/javascript" src="${rootURL}/plugin/jetbrains-space/js/load-react-app.js" />
+    <script type="text/javascript" src="${rootURL}/plugin/jetbrains-space/js/space-webhook-trigger.js" />
 
-    <f:entry title="Project" field="projectKey">
-        <f:select clazz="jb-space-autofill jb-space-cache" />
-    </f:entry>
+    <div class="jb-space-webhook-trigger-react-root"></div>
 
     <f:entry title="Repository" field="repositoryName">
-        <f:select clazz="jb-space-autofill jb-space-cache" />
+        <f:select clazz="jb-space-repo-select" />
     </f:entry>
 
     <f:radioBlock name="triggerType" value="OnlySafeMerge" title="Use only for safe merge"
@@ -26,7 +20,7 @@
                   checked="${instance.triggerType == 'Branches' }" inline="true"
                   help="/plugin/jetbrains-space/help/help-triggerOnCommits.html">
         <f:entry title="Branch specs">
-            <f:textbox name="branchSpec" field="branchSpec" placeholder="*" autoCompleteDelimChar=","/>
+            <f:textbox name="branchSpec" field="branchSpec" placeholder="*" autoCompleteDelimChar=";"/>
         </f:entry>
         <f:entry title="Also allow safe merge" field="allowSafeMergeWithBranches">
             <f:checkbox />
@@ -51,6 +45,4 @@
             <f:checkbox />
         </f:entry>
     </f:radioBlock>
-
-    <script type="text/javascript" src="${rootURL}/plugin/jetbrains-space/js/select-autofill.js" />
 </j:jelly>

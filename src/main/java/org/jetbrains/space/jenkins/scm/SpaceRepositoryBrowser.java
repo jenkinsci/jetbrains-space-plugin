@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Provides links to Space for commits, files and file diffs on the build changes page.
+ * Provides links to SpaceCode for commits, files and file diffs on the build changes page.
  * Implements an extension point from the Jenkins Git plugin.
  *
  * @see <a href="https://plugins.jenkins.io/git/#plugin-content-repository-browser">Repository Browser section in Jenkins Git plugin documentation</a>
@@ -31,8 +31,8 @@ import java.util.stream.Collectors;
  */
 public class SpaceRepositoryBrowser extends GitRepositoryBrowser {
 
-    public SpaceRepositoryBrowser(SpaceConnection spaceConnection, String projectKey, String repositoryName) {
-        this(spaceConnection.getBaseUrl() + "/p/" + projectKey + "/repositories/" + repositoryName);
+    public SpaceRepositoryBrowser(String spaceUrl, String projectKey, String repositoryName) {
+        this(spaceUrl + "/p/" + projectKey + "/repositories/" + repositoryName);
     }
 
     @DataBoundConstructor
@@ -41,7 +41,7 @@ public class SpaceRepositoryBrowser extends GitRepositoryBrowser {
     }
 
     /**
-     * Clean Space repository url of query parameters and irrelevant stuff
+     * Clean SpaceCode repository url of query parameters and irrelevant stuff
      * and restrict to first 4 path segments to keep only the required part:
      * <pre>/p/{project key}/repositories/{repo name}</pre>
      */
@@ -80,7 +80,7 @@ public class SpaceRepositoryBrowser extends GitRepositoryBrowser {
         @NonNull
         @Override
         public String getDisplayName() {
-            return "JetBrains Space";
+            return "JetBrains SpaceCode";
         }
 
         @Override

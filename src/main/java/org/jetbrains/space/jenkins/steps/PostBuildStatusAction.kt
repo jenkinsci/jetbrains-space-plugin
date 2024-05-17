@@ -9,15 +9,12 @@ import java.io.Serializable
  * and it shouldn't post the final status on build completion, overwriting the one provided by this step
  */
 class PostBuildStatusAction(
-    val spaceConnectionId: String,
-    @field:SuppressWarnings("lgtm[jenkins/plaintext-storage]")
-    val projectKey: String,
     val repositoryName: String,
     val branch: String,
     val revision: String
 ) : Action, Serializable {
 
     override fun getIconFileName() = null
-    override fun getDisplayName() = "Post build status to JetBrains Space"
+    override fun getDisplayName() = "Post build status to JetBrains SpaceCode"
     override fun getUrlName() = null
 }

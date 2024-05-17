@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:l="/lib/layout" xmlns:st="jelly:stapler">
+    <l:layout permission="${app.ADMINISTER}" title="JetBrains SpaceCode Connections" type="one-column">
+        <script type="text/javascript" src="${rootURL}/plugin/jetbrains-space/js/load-react-app.js" />
+        <script type="text/javascript" src="${rootURL}/plugin/jetbrains-space/js/space-connection.js" />
+
+        <l:main-panel>
+            <l:app-bar title="JetBrains SpaceCode Connections" />
+            <f:repeatable items="${it.connections}" var="connection" noAddButton="true">
+                <div class="jb-space-connection">
+                    <div style="display:none" class="form-fields">
+                        <input type="hidden" name="id" value="${connection.id}" />
+                        <input type="hidden" name="baseUrl" value="${connection.baseUrl}" />
+                    </div>
+                    <div class="react-root" />
+                </div>
+                <div align="right">
+                    <button tooltip="Delete SpaceCode connection"
+                            class="delete-space-connection-btn repeatable-delete danger" type="button"
+                            data-connection-id="${connection.id}">
+                        <l:icon src="symbol-close"/>
+                    </button>
+                </div>
+            </f:repeatable>
+            <j:if test="${it.connections.isEmpty()}">
+                <button class="jenkins-button" id="connect-space-org" style="margin-top: 16px">Connect</button>
+            </j:if>
+            <j:if test="${!it.connections.isEmpty()}">
+                <button class="jenkins-button" id="connect-space-org" style="margin-top: 16px">Connect another SpaceCode organization</button>
+            </j:if>
+            <script type="text/javascript" src="${rootURL}/plugin/jetbrains-space/js/space-plugin-configuration.js"/>
+        </l:main-panel>
+    </l:layout>
+</j:jelly>

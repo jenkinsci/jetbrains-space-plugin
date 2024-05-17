@@ -1,16 +1,21 @@
 package org.jetbrains.space.jenkins.steps
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings
 import hudson.ExtensionList
 import hudson.model.CauseAction
 import hudson.model.Run
+import jenkins.branch.MultiBranchProject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import org.jenkinsci.plugins.workflow.multibranch.BranchJobProperty
 import org.jenkinsci.plugins.workflow.steps.StepContext
 import org.jenkinsci.plugins.workflow.steps.StepExecution
-import org.jetbrains.space.jenkins.config.*
-import org.jetbrains.space.jenkins.listeners.SpaceGitScmCheckoutAction
+import org.jetbrains.space.jenkins.*
+import org.jetbrains.space.jenkins.config.SpacePluginConfiguration
+import org.jetbrains.space.jenkins.config.getApiClient
+import org.jetbrains.space.jenkins.config.getProjectConnection
+import org.jetbrains.space.jenkins.scm.SpaceSCMHead
 import org.jetbrains.space.jenkins.trigger.SpaceWebhookTriggerCause
+import org.jetbrains.space.jenkins.trigger.TriggerCause
 import space.jetbrains.api.runtime.resources.chats
 import space.jetbrains.api.runtime.resources.projects
 import space.jetbrains.api.runtime.types.*
@@ -18,13 +23,14 @@ import kotlin.coroutines.EmptyCoroutineContext
 
 /**
  * Drives the execution of the [PostReviewTimelineMessageStep], which is responsible for posting a message
- * to the merge request timeline in Space on behalf of Jenkins integration.
+ * to the merge request timeline in SpaceCode on behalf of Jenkins integration.
  */
 class PostReviewTimelineMessageStepExecution(
-    private val spaceConnectionId: String,
-    private val projectKey: String,
-    private val mergeRequestNumber: Int,
-    private val messageText: String,
+    val jenkinsItemFullName: String,
+    val spaceConnectionId: String,
+    val spaceProjectKey: String?,
+    val mergeRequestNumber: Int,
+    val messageText: String,
     context: StepContext
 ) : StepExecution(context) {
 
@@ -34,73 +40,30 @@ class PostReviewTimelineMessageStepExecution(
         /**
          * Obtain all the necessary parameters from the build trigger or git checkout settings if necessary and start the step execution.
          */
-        fun start(step: PostReviewTimelineMessageStep, context: StepContext, spacePluginConfiguration: SpacePluginConfiguration) :  StepExecution {
+        fun start(step: PostReviewTimelineMessageStep, context: StepContext) :  StepExecution {
             val build: Run<*, *> = context.get(Run::class.java)
                 ?: return FailureStepExecution("StepContext does not contain the Run instance", context)
 
-            val triggerCause = build.getAction(CauseAction::class.java)?.findCause(SpaceWebhookTriggerCause::class.java)
-            val checkoutAction = build.getAction(SpaceGitScmCheckoutAction::class.java)
+            val multiProjectScmSource = build.getParent().getMultiBranchSpaceScmSource()
+            val spaceConnectionId = multiProjectScmSource?.spaceConnectionId
+                ?: build.getParent().getSpaceConnectionId()
+                ?: return FailureStepExecution("SpaceCode connection not found", context)
 
-            val (connection, projectKey) = when {
-                step.spaceConnection != null -> {
-                    val connection = spacePluginConfiguration.getConnectionById(step.spaceConnection)
-                        ?: return FailureStepExecution(
-                            "No Space connection found by specified id",
-                            context
-                        )
-                    val projectKey = step.projectKey
-                        ?: return FailureStepExecution(
-                            "Project key must be specified together with the Space connection",
-                            context
-                        )
-                    connection to projectKey
-                }
-
-                triggerCause != null -> {
-                    val connection = spacePluginConfiguration.getConnectionById(triggerCause.spaceConnectionId)
-                        ?: return FailureStepExecution(
-                            "No Space connection found for the Space webhook call that triggered the build",
-                            context
-                        )
-                    connection to triggerCause.projectKey
-                }
-
-                checkoutAction != null -> {
-                    val connection = spacePluginConfiguration.getConnectionById(checkoutAction.spaceConnectionId)
-                        ?: return FailureStepExecution(
-                            "No Space connection found for checkout action",
-                            context
-                        )
-                    connection to checkoutAction.projectKey
-                }
-
-                else ->
-                    null to null
-            }
-
-            if (connection == null) {
-                return FailureStepExecution(
-                    "Space connection cannot be inferred from the build trigger or checkout setting and is not specified explicitly in the workflow step",
-                    context
-                )
-            }
-
-            if (projectKey == null) {
-                return FailureStepExecution(
-                    "Space project cannot be inferred from the build trigger or checkout setting and is not specified explicitly in the workflow step",
-                    context
-                )
-            }
-
-            val mergeRequestNumber = (step.mergeRequestNumber ?: triggerCause?.mergeRequest?.number)
+            val triggerCause = build.getAction(CauseAction::class.java)?.findCause(SpaceWebhookTriggerCause::class.java)?.cause
+                ?: (build.getParent().getProperty(BranchJobProperty::class.java)?.branch?.head as? SpaceSCMHead)
+                    ?.triggerCause
+            val mergeRequestNumber = (step.mergeRequestNumber ?: (triggerCause as? TriggerCause.MergeRequest)?.number)
                 ?: return FailureStepExecution(
                     "Merge request cannot be inferred from the build trigger settings and is not specified explicitly in the workflow step",
                     context
                 )
 
+            val jenkinsItem = (build.getParent().getParent() as? MultiBranchProject<*, *>) ?: build.getParent()
+
             return PostReviewTimelineMessageStepExecution(
-                spaceConnectionId = connection.id,
-                projectKey = projectKey,
+                jenkinsItemFullName = jenkinsItem.fullName,
+                spaceConnectionId = spaceConnectionId,
+                spaceProjectKey = multiProjectScmSource?.projectKey,
                 mergeRequestNumber = mergeRequestNumber,
                 messageText = step.messageText,
                 context = context
@@ -112,28 +75,25 @@ class PostReviewTimelineMessageStepExecution(
     private val coroutineScope = CoroutineScope(EmptyCoroutineContext)
 
     override fun start(): Boolean {
-        val spacePluginConfiguration = ExtensionList.lookup(SpacePluginConfiguration::class.java).singleOrNull()
-            ?: error("Space plugin configuration cannot be resolved")
+        val (spaceConnection, spaceUrl) = getProjectConnection(jenkinsItemFullName, spaceConnectionId, spaceProjectKey)
 
-        val spaceConnection = spacePluginConfiguration.getConnectionById(spaceConnectionId)
-            ?: error("No Space connection found by specified id")
-
+        val projectKey = spaceConnection.projectKey
         coroutineScope.launch {
             try {
-                spaceConnection.getApiClient().use { spaceApiClient ->
+                spaceConnection.getApiClient(spaceUrl).use { spaceApiClient ->
                     val review = spaceApiClient.projects.codeReviews.getCodeReview(
                         ProjectIdentifier.Key(projectKey),
                         ReviewIdentifier.Number(mergeRequestNumber)
                     ) {
                         feedChannelId()
-                    } as? MergeRequestRecord ?: error("Cannot find merge request $mergeRequestNumber in Space project $projectKey")
+                    } as? MergeRequestRecord ?: error("Cannot find merge request $mergeRequestNumber in SpaceCode project $projectKey")
 
                     review.feedChannelId?.let { channelId ->
                         spaceApiClient.chats.messages.sendMessage(
                             ChannelIdentifier.Id(channelId),
                             ChatMessage.Text(messageText)
                         )
-                    } ?: error("Merge request $mergeRequestNumber in Space project $projectKey does not have associated feed channel")
+                    } ?: error("Merge request $mergeRequestNumber in SpaceCode project $projectKey does not have associated feed channel")
                 }
                 context.onSuccess(null)
             } catch (ex: Throwable) {
@@ -143,4 +103,3 @@ class PostReviewTimelineMessageStepExecution(
         return false
     }
 }
-

@@ -4,17 +4,17 @@ import hudson.EnvVars
 import hudson.model.EnvironmentContributingAction
 import hudson.model.Run
 import org.jetbrains.space.jenkins.Env
+import org.jetbrains.space.jenkins.scm.buildSpaceCommitUrl
 import org.jetbrains.space.jenkins.trigger.TriggerCause
 import org.jetbrains.space.jenkins.trigger.TriggerCause.MergeRequest
 import java.net.URLEncoder
 
 /**
  * An implementation of [hudson.model.Action] that is stored in build run metadata
- * and provides information about the source code checked out from Space git repository
- * and the Space-specific settings of the checkout step.
+ * and provides information about the source code checked out from SpaceCode git repository
+ * and the SpaceCode-specific settings of the checkout step.
  */
 data class SpaceGitScmCheckoutAction(
-    val spaceConnectionId: String,
     val spaceUrl: String,
     @field:SuppressWarnings("lgtm[jenkins/plaintext-storage]")
     val projectKey: String,
@@ -32,18 +32,16 @@ data class SpaceGitScmCheckoutAction(
 
     override fun getDisplayName() =
         if (cause is TriggerCause.MergeRequest)
-            "Merge Request in " + (sourceDisplayName ?: "JetBrains Space")
+            "Merge Request in " + (sourceDisplayName ?: "JetBrains SpaceCode")
         else
-            "Commits in " + (sourceDisplayName ?: "JetBrains Space")
+            "Commits in " + (sourceDisplayName ?: "JetBrains SpaceCode")
 
 
     override fun getUrlName() =
         if (cause is TriggerCause.MergeRequest)
             cause.url
-        else {
-            val query = URLEncoder.encode("head:" + revision, Charsets.UTF_8)
-            "$spaceUrl/p/$projectKey/repositories/$repositoryName/commits?query=$query&commits=$revision"
-        }
+        else
+            buildSpaceCommitUrl(spaceUrl, projectKey, repositoryName, revision)
 
     override fun buildEnvironment(run: Run<*, *>, env: EnvVars) {
         env[Env.SPACE_URL] = spaceUrl

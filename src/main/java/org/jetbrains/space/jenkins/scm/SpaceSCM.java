@@ -7,24 +7,23 @@ import hudson.Extension;
 import hudson.ExtensionList;
 import hudson.FilePath;
 import hudson.Launcher;
-import hudson.model.Item;
 import hudson.model.Job;
 import hudson.model.Run;
 import hudson.model.TaskListener;
-import hudson.plugins.git.BranchSpec;
 import hudson.plugins.git.GitSCM;
 import hudson.plugins.git.GitTool;
 import hudson.plugins.git.extensions.GitSCMExtension;
 import hudson.plugins.git.extensions.GitSCMExtensionDescriptor;
 import hudson.scm.*;
 import hudson.util.ListBoxModel;
+import kotlin.Pair;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.structs.describable.CustomDescribableModel;
 import org.jenkinsci.plugins.structs.describable.UninstantiatedDescribable;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.space.jenkins.config.SpaceConnection;
+import org.jetbrains.space.jenkins.JobExtensionsKt;
 import org.jetbrains.space.jenkins.config.SpacePluginConfiguration;
-import org.jetbrains.space.jenkins.config.UtilsKt;
+import org.jetbrains.space.jenkins.config.SpaceProjectConnection;
 import org.jetbrains.space.jenkins.Env;
 import org.jetbrains.space.jenkins.trigger.SpaceWebhookTrigger;
 import org.kohsuke.stapler.*;
@@ -36,11 +35,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * <p>{@link SCM} implementation for JetBrains Space. Wraps the standard Git SCM implementation, adding some features on top of it.</p>
- * <p>Allows checking out source code by selecting a configured Space connection and then choosing a project and repository,
- * provides Space links for commits, files and file diffs on the build changes page
- * and enables automatic build status posting to Space.</p>
- * <p>Specifying Space connection parameters is not required, it is taken from the build trigger settings if omitted</p>
+ * <p>{@link SCM} implementation for JetBrains SpaceCode. Wraps the standard Git SCM implementation, adding some features on top of it.</p>
+ * <p>Allows checking out source code by selecting a configured SpaceCode connection and then choosing a project and repository,
+ * provides SpaceCode links for commits, files and file diffs on the build changes page
+ * and enables automatic build status posting to SpaceCode.</p>
+ * <p>Specifying SpaceCode connection parameters is not required, it is taken from the build trigger settings if omitted</p>
  *
  * @see <a href="https://github.com/jenkinsci/workflow-scm-step-plugin">Workflow SCM step plugin</a>
  */
@@ -48,13 +47,13 @@ public class SpaceSCM extends SCM {
 
     private GitSCM gitSCM;
     private boolean postBuildStatusToSpace;
-    private final CustomSpaceConnection customSpaceConnection;
+    private final CustomSpaceRepository customSpaceRepository;
     private final String gitTool;
     private final List<GitSCMExtension> extensions;
 
     @DataBoundConstructor
-    public SpaceSCM(CustomSpaceConnection customSpaceConnection, String gitTool, List<GitSCMExtension> extensions) {
-        this.customSpaceConnection = customSpaceConnection;
+    public SpaceSCM(CustomSpaceRepository customSpaceRepository, String gitTool, List<GitSCMExtension> extensions) {
+        this.customSpaceRepository = customSpaceRepository;
         this.gitTool = gitTool;
         this.extensions = extensions;
         this.postBuildStatusToSpace = true;
@@ -64,8 +63,9 @@ public class SpaceSCM extends SCM {
         return gitSCM;
     }
 
-    public CustomSpaceConnection getCustomSpaceConnection() {
-        return customSpaceConnection;
+    @CheckForNull
+    public CustomSpaceRepository getCustomSpaceRepository() {
+        return customSpaceRepository;
     }
 
     public boolean getPostBuildStatusToSpace() {
@@ -90,14 +90,7 @@ public class SpaceSCM extends SCM {
         if (gitSCM != null)
             return gitSCM.getBrowser();
 
-        if (customSpaceConnection == null)
-            return null;
-
-        SpaceConnection spaceConnection = UtilsKt.getConnectionById(
-                ExtensionList.lookupSingleton(SpacePluginConfiguration.class), customSpaceConnection.spaceConnection);
-        return (spaceConnection != null)
-                ? new SpaceRepositoryBrowser(spaceConnection, customSpaceConnection.projectKey, customSpaceConnection.repository)
-                : null;
+        return null;
     }
 
     @CheckForNull
@@ -121,8 +114,8 @@ public class SpaceSCM extends SCM {
             @CheckForNull File changelogFile,
             @CheckForNull SCMRevisionState baseline
     ) throws IOException, InterruptedException {
-        getAndInitializeGitScmIfNull(build.getParent(), build)
-                .checkout(build, launcher, workspace, listener, changelogFile, baseline);
+        initializeGitScm(build.getParent(), build);
+        gitSCM.checkout(build, launcher, workspace, listener, changelogFile, baseline);
     }
 
     @Override
@@ -142,20 +135,20 @@ public class SpaceSCM extends SCM {
      */
     @Override
     public void buildEnvironment(@NotNull Run<?, ?> build, java.util.@NotNull Map<String, String> env) {
-        if (customSpaceConnection != null) {
-            if (customSpaceConnection.projectKey != null) {
-                env.put(Env.PROJECT_KEY, customSpaceConnection.projectKey);
-            }
-            if (customSpaceConnection.repository != null) {
-                env.put(Env.REPOSITORY_NAME, customSpaceConnection.repository);
-            }
-        } else {
-            SpaceWebhookTrigger trigger = SpaceSCMKt.getSpaceWebhookTrigger(build.getParent());
-            if (trigger != null) {
-                env.put(Env.PROJECT_KEY, trigger.getProjectKey());
-                env.put(Env.REPOSITORY_NAME, trigger.getRepositoryName());
+        Pair<SpaceProjectConnection, String> projectConnection = JobExtensionsKt.getProjectConnection(build.getParent());
+        if (projectConnection != null) {
+            env.put(Env.PROJECT_KEY, projectConnection.component1().getProjectKey());
+
+            if (customSpaceRepository != null && customSpaceRepository.repository != null) {
+                env.put(Env.REPOSITORY_NAME, customSpaceRepository.repository);
+            } else {
+                SpaceWebhookTrigger trigger = SpaceSCMKt.getSpaceWebhookTrigger(build.getParent());
+                if (trigger != null) {
+                    env.put(Env.REPOSITORY_NAME, trigger.getRepositoryName());
+                }
             }
         }
+
         getAndInitializeGitScmIfNull(build.getParent(), build).buildEnvironment(build, env);
     }
 
@@ -195,32 +188,22 @@ public class SpaceSCM extends SCM {
 
         @Override
         public @NotNull String getDisplayName() {
-            return "JetBrains Space";
+            return "JetBrains SpaceCode";
         }
 
         @Override
         public @NonNull Map<String, Object> customInstantiate(@NonNull Map<String, Object> arguments) {
-            return PlainSpaceSCM.Companion.wrapCustomSpaceConnectionParams(arguments);
+            return PlainSpaceSCM.Companion.wrapCustomSpaceRepositoryParams(arguments);
         }
 
         @Override
         public @NonNull UninstantiatedDescribable customUninstantiate(@NonNull UninstantiatedDescribable ud) {
-            return PlainSpaceSCM.Companion.unwrapCustomSpaceConnectionParams(ud);
+            return PlainSpaceSCM.Companion.unwrapCustomSpaceRepositoryParams(ud);
         }
 
         @POST
-        public ListBoxModel doFillSpaceConnectionItems(@AncestorInPath Item context) {
-            return SpaceSCMParamsProvider.INSTANCE.doFillSpaceConnectionItems(context);
-        }
-
-        @POST
-        public HttpResponse doFillProjectKeyItems(@AncestorInPath Item context, @QueryParameter String spaceConnection) {
-            return SpaceSCMParamsProvider.INSTANCE.doFillProjectKeyItems(context, spaceConnection);
-        }
-
-        @POST
-        public HttpResponse doFillRepositoryItems(@AncestorInPath Item context, @QueryParameter String spaceConnection, @QueryParameter String projectKey) {
-            return SpaceSCMParamsProvider.INSTANCE.doFillRepositoryNameItems(context, spaceConnection, projectKey);
+        public HttpResponse doFillRepositoryItems(@AncestorInPath Job<?,?> context) {
+            return SpaceSCMKt.doFillRepositoryNameItems(context);
         }
 
         @POST
@@ -243,38 +226,25 @@ public class SpaceSCM extends SCM {
     }
 
     /**
-     * Contains explicitly specified Space connection, project, repository and branches spec for checking out source code.
+     * Contains explicitly specified SpaceCode repository and refspec for checking out source code.
      * Optional for {@link SpaceSCM}, when missing those parameters will be taken from the build trigger configuration.
      */
-    public static class CustomSpaceConnection {
-        private final String spaceConnection;
-        // lgtm[jenkins/plaintext-storage]
-        private final String projectKey;
+    public static class CustomSpaceRepository {
         private final String repository;
-        private final List<BranchSpec> branches;
+        private final String refspec;
 
         @DataBoundConstructor
-        public CustomSpaceConnection(String spaceConnection, String projectKey, String repository, List<BranchSpec> branches) {
-            this.spaceConnection = spaceConnection;
-            this.projectKey = projectKey;
+        public CustomSpaceRepository(String repository, String refspec) {
             this.repository = repository;
-            this.branches = branches;
-        }
-
-        public String getSpaceConnection() {
-            return spaceConnection;
-        }
-
-        public String getProjectKey() {
-            return projectKey;
+            this.refspec = refspec;
         }
 
         public String getRepository() {
             return repository;
         }
 
-        public List<BranchSpec> getBranches() {
-            return branches;
+        public String getRefspec() {
+            return refspec;
         }
     }
 }

@@ -9,13 +9,13 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.space.jenkins.config.SpacePluginConfiguration;
 
 /**
- * Listens for the completion of Jenkins build and posts build status to Space if needed.
+ * Listens for the completion of Jenkins build and posts build status to SpaceCode if needed.
  */
 @Extension
 public class RunListenerImpl extends RunListener<Run<?, ?>> {
 
     @Override
     public void onCompleted(Run<?, ?> run, @NotNull TaskListener listener) {
-        SCMListenerKt.onBuildCompleted(run, listener, ExtensionList.lookupSingleton(SpacePluginConfiguration.class));
+        SCMListenerKt.onBuildCompleted(run, listener);
     }
 }

@@ -3,20 +3,15 @@ package org.jetbrains.space.jenkins.trigger
 import hudson.ExtensionList
 import hudson.model.*
 import hudson.model.Queue.LeftItem
-import hudson.model.Queue.Task
 import hudson.model.queue.ScheduleResult.Created
 import hudson.model.queue.ScheduleResult.Existing
 import hudson.model.queue.ScheduleResult.Refused
 import hudson.security.ACL
 import io.ktor.http.*
 import jenkins.model.Jenkins
-import jenkins.triggers.SCMTriggerItem
 import jenkins.triggers.TriggeredItem
-import net.sf.json.JSON
-import org.jetbrains.space.jenkins.config.SpaceConnection
-import org.jetbrains.space.jenkins.config.SpacePluginConfiguration
-import org.jetbrains.space.jenkins.config.getApiClient
-import org.jetbrains.space.jenkins.config.getConnectionByClientId
+import org.jetbrains.space.jenkins.*
+import org.jetbrains.space.jenkins.config.*
 import org.jetbrains.space.jenkins.listeners.mergeRequestFields
 import space.jetbrains.api.ExperimentalSpaceSdkApi
 import space.jetbrains.api.runtime.helpers.ProcessingScope
@@ -29,19 +24,23 @@ import space.jetbrains.api.runtime.types.structure.JenkinsBuildStructure
 import java.util.logging.Logger
 
 /**
- * Processes incoming start safe merge build command from Space.
+ * Processes incoming start safe merge build command from SpaceCode.
  *
  * Validates the command, fills in the build cause and attaches it to queued build,
  * puts the build into the queue and returns the resulting queue item ([JenkinsBuild.QueueItem] JSON) as request body.
  *
- * @see <a href="https://www.jetbrains.com/help/space/branch-and-merge-restrictions.html#safe-merge">Safe Merge in Space</a>
+ * @see <a href="https://www.jetbrains.com/help/space/branch-and-merge-restrictions.html#safe-merge">Safe Merge in SpaceCode</a>
  */
 @OptIn(ExperimentalSpaceSdkApi::class)
 suspend fun ProcessingScope.startSafeMerge(clientId: String, command: SafeMergeCommand.Start, requestAdapter: RequestAdapter): SpaceHttpResponse {
-    val spaceConnection = getSpaceConnectionByClientId(clientId)
+    val (spaceConnection, spaceUrl) = getProjectConnectionByClientId(clientId)
         ?: return SpaceHttpResponse.RespondWithCode(HttpStatusCode.Unauthorized)
 
-    val job = ACL.as2(ACL.SYSTEM2).use { Jenkins.get().getItemByFullName(command.project) }
+    val job = ACL.as2(ACL.SYSTEM2)
+        .use {
+            (Jenkins.get().getItemByFullName(command.project) as? Job<*, *>)
+                ?.takeIf { it.getSpaceClientId() == clientId }
+        }
         ?: return SpaceHttpResponse.RespondWithCode(HttpStatusCode.NotFound)
 
     (job as? Queue.Task)
@@ -52,17 +51,14 @@ suspend fun ProcessingScope.startSafeMerge(clientId: String, command: SafeMergeC
 
     // check that safe merge is enabled for this Jenkins project
     (job as? TriggeredItem)?.triggers?.values?.filterIsInstance<SpaceWebhookTrigger>()
-        ?.firstOrNull {
-            it.spaceConnectionId == spaceConnection.id &&
-                    (it.triggerType == SpaceWebhookTriggerType.OnlySafeMerge || it.allowSafeMerge)
-        }
+        ?.firstOrNull { it.triggerType == SpaceWebhookTriggerType.OnlySafeMerge || it.allowSafeMerge }
         ?: run {
             LOGGER.warning("Safe merge trigger is not enabled for the job \"${command.project}\"")
             return SpaceHttpResponse.RespondWithCode(HttpStatusCode.Unauthorized)
         }
 
-    // fetch additional data about the merge request from Space
-    val mergeRequest = spaceConnection.getApiClient().use {
+    // fetch additional data about the merge request from SpaceCode
+    val mergeRequest = spaceConnection.getApiClient(spaceUrl).use {
         it.projects.codeReviews.getCodeReview(
             ProjectIdentifier.Id(command.spaceProjectId),
             ReviewIdentifier.Id(command.mergeRequestId),
@@ -73,7 +69,7 @@ suspend fun ProcessingScope.startSafeMerge(clientId: String, command: SafeMergeC
     val causeAction = CauseAction(
         SpaceWebhookTriggerCause.fromMergeRequest(
             mergeRequest,
-            spaceConnection,
+            spaceUrl,
             TriggerCauseSafeMerge(command.branch, command.commit, command.isDryRun, command.startedByUserId)
         )
     )
@@ -94,7 +90,7 @@ suspend fun ProcessingScope.startSafeMerge(clientId: String, command: SafeMergeC
 }
 
 /**
- * Processes incoming stop safe merge command from Space.
+ * Processes incoming stop safe merge command from SpaceCode.
  *
  * The `command.buildId` might reference either a queue item or a running build (distinguished by the build id prefix).
  * If build is still in queue, it is removed from the queue; if it is already running, it is aborted.
@@ -102,22 +98,17 @@ suspend fun ProcessingScope.startSafeMerge(clientId: String, command: SafeMergeC
  */
 @OptIn(ExperimentalSpaceSdkApi::class)
 suspend fun ProcessingScope.stopSafeMerge(clientId: String, command: SafeMergeCommand.Stop, requestAdapter: RequestAdapter): SpaceHttpResponse {
-    val result = when (val result = getQueueItemOrBuild(clientId, command.project, command.buildId)) {
+    val result = when (val result = getQueueItemOrBuild(command.project, command.buildId, clientId)) {
         is GetQueueItemOrBuildResult.QueueItem -> {
             if (!Jenkins.get().queue.cancel(result.queueItem)) {
                 LOGGER.info("Could not cancel the queue item  ${command.buildId}")
-                return SpaceHttpResponse.RespondWithOk
             }
             result.queueItem.toJenkinsBuild()
         }
 
         is GetQueueItemOrBuildResult.Build -> {
-            val executor = result.run.getExecutor()
-                ?: run {
-                    LOGGER.info("Build ${command.buildId} has already completed")
-                    return SpaceHttpResponse.RespondWithOk
-                }
-            executor.interrupt()
+            result.run.getExecutor()?.interrupt()
+                ?: LOGGER.info("Build ${command.buildId} has already completed")
             result.run.toJenkinsBuild()
         }
 
@@ -138,7 +129,7 @@ suspend fun ProcessingScope.stopSafeMerge(clientId: String, command: SafeMergeCo
  */
 @OptIn(ExperimentalSpaceSdkApi::class)
 suspend fun ProcessingScope.fetchSafeMergeStatus(clientId: String, command: SafeMergeCommand.FetchStatus, requestAdapter: RequestAdapter): SpaceHttpResponse {
-    val result = when (val result = getQueueItemOrBuild(clientId, command.project, command.buildId)) {
+    val result = when (val result = getQueueItemOrBuild(command.project, command.buildId, clientId)) {
         is GetQueueItemOrBuildResult.QueueItem ->
             result.queueItem.toJenkinsBuild()
         is GetQueueItemOrBuildResult.Build ->
@@ -152,29 +143,26 @@ suspend fun ProcessingScope.fetchSafeMergeStatus(clientId: String, command: Safe
     return SpaceHttpResponse.AlreadyResponded
 }
 
-private fun getSpaceConnectionByClientId(clientId: String): SpaceConnection? {
+private fun getProjectConnectionByClientId(clientId: String): Pair<SpaceProjectConnection, String>? {
     val spacePluginConfiguration = ExtensionList.lookup(SpacePluginConfiguration::class.java).singleOrNull()
-        ?: error("Space plugin configuration cannot be resolved")
+        ?: error("SpaceCode plugin configuration cannot be resolved")
 
-    return spacePluginConfiguration.getConnectionByClientId(clientId)
+    return spacePluginConfiguration.connections
+        .flatMap { conn -> conn.projectConnectionsByJob?.values?.map { it to conn.baseUrl }.orEmpty() }
+        .firstOrNull { it.first.clientId == clientId }
 }
 
-private fun List<Cause>.hasSafeMergeCause(spaceConnection: SpaceConnection) =
-    filterIsInstance<SpaceWebhookTriggerCause>().firstOrNull()
-        ?.let { it.spaceConnectionId == spaceConnection.id && it.mergeRequest?.safeMerge != null } == true
+private fun List<Cause>.hasSafeMergeCause() =
+    filterIsInstance<SpaceWebhookTriggerCause>().firstOrNull()?.let { it.mergeRequest?.safeMerge != null } == true
 
 /**
  * Fetches up-to-date information about the safe merge started in Jenkins.
  * It can be either queue item if build is still pending, or a running build if build is already running or completed.
  *
- * @param clientId Client id of the Space application that handles Jenkins integration
  * @param project Full name of the Jenkins job or workflow that executes safe merge. Contains of several parts split by `/` if it is nested in a folder hierarchy.
  * @param buildId Identifier of the queue item (`queue-item-` + number) or running build (`build-` + number) in Jenkins
  */
-private fun getQueueItemOrBuild(clientId: String, project: String, buildId: String): GetQueueItemOrBuildResult {
-    val spaceConnection = getSpaceConnectionByClientId(clientId)
-        ?: return GetQueueItemOrBuildResult.Error(HttpStatusCode.Unauthorized, "Space connection with client id $clientId not configured")
-
+private fun getQueueItemOrBuild(project: String, buildId: String, spaceAppClientId: String): GetQueueItemOrBuildResult {
     when {
         buildId.startsWith(BuildIdPrefix.QUEUE_ITEM) -> {
             val queue = Jenkins.get().queue
@@ -182,16 +170,17 @@ private fun getQueueItemOrBuild(clientId: String, project: String, buildId: Stri
                 ?: return GetQueueItemOrBuildResult.Error(HttpStatusCode.BadRequest, "Cannot parse queue item id \"$buildId\"")
 
             val queueItem = queue.getItem(queueItemId)
+                .takeIf { (it.task as? Job<*,*>)?.getProjectConnection()?.first?.clientId == spaceAppClientId }
                 ?: return GetQueueItemOrBuildResult.Error(HttpStatusCode.NotFound, "Queue item not found by id = $queueItemId")
 
-            if (!queueItem.causes.hasSafeMergeCause(spaceConnection))
+            if (!queueItem.causes.hasSafeMergeCause())
                 return GetQueueItemOrBuildResult.Error(HttpStatusCode.NotFound, "Queue item with id $queueItemId was started not by the safe merge")
 
             (queueItem as? LeftItem)?.executable?.let { executable ->
                 return if (executable is Run<*, *>)
                     GetQueueItemOrBuildResult.Build(executable)
                 else
-                    GetQueueItemOrBuildResult.Error(HttpStatusCode.NotFound, "Queue item with id $queueItemId resulted in unexpected executable of type '${executable?.javaClass?.name}'")
+                    GetQueueItemOrBuildResult.Error(HttpStatusCode.NotFound, "Queue item with id $queueItemId resulted in unexpected executable of type '${executable.javaClass.name}'")
             }
 
             return GetQueueItemOrBuildResult.QueueItem(queueItem)
@@ -251,9 +240,9 @@ private sealed class GetQueueItemOrBuildResult {
  * Whenever a job or workflow is queued for execution in Jenkins, the build is not immediately created for it.
  * First, a queue item is created put into the queue, and build is only created when it actually starts running.
  * Queue items and builds are identified by sequential integer numbers, but their sequences are independent of each other,
- * so we need to tell one from the other when communicating build statuses to Space.
+ * so we need to tell one from the other when communicating build statuses to SpaceCode.
  *
- * Build identifiers used in communication with Space are strings composed from a prefix
+ * Build identifiers used in communication with SpaceCode are strings composed from a prefix
  * designating whether it's a build or a queue item, and the actual build or queue item integer id.
  */
 object BuildIdPrefix {

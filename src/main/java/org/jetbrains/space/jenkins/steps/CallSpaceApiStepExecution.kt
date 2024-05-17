@@ -1,33 +1,32 @@
 package org.jetbrains.space.jenkins.steps
 
 import hudson.ExtensionList
-import hudson.model.CauseAction
 import hudson.model.Run
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.http.content.*
+import jenkins.branch.MultiBranchProject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.jenkinsci.plugins.workflow.steps.StepContext
 import org.jenkinsci.plugins.workflow.steps.StepExecution
-import org.jetbrains.space.jenkins.config.SpacePluginConfiguration
-import org.jetbrains.space.jenkins.config.getApiClient
-import org.jetbrains.space.jenkins.config.getConnectionById
-import org.jetbrains.space.jenkins.listeners.SpaceGitScmCheckoutAction
-import org.jetbrains.space.jenkins.trigger.SpaceWebhookTriggerCause
+import org.jetbrains.space.jenkins.*
+import org.jetbrains.space.jenkins.config.*
 import space.jetbrains.api.runtime.*
 import java.io.IOException
 import kotlin.coroutines.EmptyCoroutineContext
 
 /**
- * Drives the execution of the [CallSpaceApiStep], which is responsible for sending a request to Space HTTP API and getting a response.
+ * Drives the execution of the [CallSpaceApiStep], which is responsible for sending a request to SpaceCode HTTP API and getting a response.
  */
 class CallSpaceApiStepExecution(
+    val jenkinsItemFullName: String,
+    val spaceConnectionId: String,
+    val spaceProjectKey: String?,
     val httpMethod: String,
     val requestUrl: String,
     val requestBody: String?,
-    val spaceConnectionId: String,
     context: StepContext
 ) : StepExecution(context) {
 
@@ -35,56 +34,26 @@ class CallSpaceApiStepExecution(
         private final val serialVersionUID = 1L
 
         /**
-         * Obtain Space connection from the build trigger or git checkout settings if necessary and start the step execution.
+         * Obtain SpaceCode connection from the build trigger or git checkout settings if necessary and start the step execution.
          */
-        fun start(step: CallSpaceApiStep, context: StepContext, spacePluginConfiguration: SpacePluginConfiguration) : StepExecution {
+        fun start(step: CallSpaceApiStep, context: StepContext) : StepExecution {
             val build = context.get(Run::class.java)
                 ?: return FailureStepExecution("StepContext does not contain the Run instance", context)
 
-            val triggerCause = build.getAction(CauseAction::class.java)?.findCause(SpaceWebhookTriggerCause::class.java)
-            val checkoutAction = build.getAction(SpaceGitScmCheckoutAction::class.java)
+            val multiProjectScmSource = build.getParent().getMultiBranchSpaceScmSource()
+            val spaceConnectionId = multiProjectScmSource?.spaceConnectionId
+                ?: build.getParent().getSpaceConnectionId()
+                ?: return FailureStepExecution("SpaceCode connection not found", context)
 
-            val connection = when {
-                step.spaceConnection != null -> {
-                    spacePluginConfiguration.getConnectionById(step.spaceConnection)
-                        ?: return FailureStepExecution(
-                            "No Space connection found by specified id",
-                            context
-                        )
-                }
-
-                triggerCause != null -> {
-                    spacePluginConfiguration.getConnectionById(triggerCause.spaceConnectionId)
-                        ?: return FailureStepExecution(
-                            "No Space connection found for the Space webhook call that triggered the build",
-                            context
-                        )
-                }
-
-                checkoutAction != null -> {
-                    spacePluginConfiguration.getConnectionById(checkoutAction.spaceConnectionId)
-                        ?: return FailureStepExecution(
-                            "No Space connection found for checkout action",
-                            context
-                        )
-                }
-
-                else ->
-                    null
-            }
-
-            if (connection == null) {
-                return FailureStepExecution(
-                    "Space connection cannot be inferred from the build trigger or git checkout settings and is not specified explicitly in the workflow step",
-                    context
-                )
-            }
+            val jenkinsItem = (build.getParent().getParent() as? MultiBranchProject<*,*>) ?: build.getParent()
 
             return CallSpaceApiStepExecution(
+                jenkinsItemFullName = jenkinsItem.fullName,
+                spaceConnectionId = spaceConnectionId,
+                spaceProjectKey = multiProjectScmSource?.projectKey,
                 httpMethod = step.httpMethod,
                 requestUrl = step.requestUrl,
                 requestBody = step.requestBody,
-                spaceConnectionId = connection.id,
                 context = context
             )
         }
@@ -94,19 +63,15 @@ class CallSpaceApiStepExecution(
     private val coroutineScope = CoroutineScope(EmptyCoroutineContext)
 
     override fun start(): Boolean {
-        val spacePluginConfiguration = ExtensionList.lookup(SpacePluginConfiguration::class.java).singleOrNull()
-            ?: error("Space plugin configuration cannot be resolved")
-
         coroutineScope.launch {
             try {
-                val spaceConnection = spacePluginConfiguration.getConnectionById(spaceConnectionId)
-                    ?: error("No Space connection found by specified id")
+                val (spaceConnection, spaceUrl) = getProjectConnection(jenkinsItemFullName, spaceConnectionId, spaceProjectKey)
 
                 while (true) {
-                    spaceConnection.getApiClient().use { spaceApiClient ->
+                    spaceConnection.getApiClient(spaceUrl).use { spaceApiClient ->
                         val response = spaceApiClient.ktorClient.request {
                             url {
-                                takeFrom(spaceConnection.baseUrl.removeSuffix("/") + "/" + requestUrl.removePrefix("/"))
+                                takeFrom(spaceUrl.removeSuffix("/") + "/" + requestUrl.removePrefix("/"))
                             }
                             method = HttpMethod.parse(httpMethod)
                             accept(ContentType.Application.Json)
