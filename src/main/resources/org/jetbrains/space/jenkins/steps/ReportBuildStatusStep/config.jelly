@@ -6,33 +6,17 @@
         <f:select field="buildStatus" />
     </f:entry>
 
-    <f:optionalBlock title="Override JetBrains Space connection" field="customSpaceConnection" checked="${instance.customSpaceConnection != null}">
-        <j:set var="it" value="${instance.customSpaceConnection}"/>
-
-        <f:description>
-            Overrides JetBrains Space instance. If this block is not filled, JetBrains Space connection will be taken from the build trigger or checkout settings.
-        </f:description>
-
-        <f:entry title="Connection" field="spaceConnection">
-            <f:select value="${it.spaceConnection}" clazz="jb-space-autofill jb-space-cache" />
-        </f:entry>
-
-        <f:entry title="Project" field="projectKey">
-            <f:select value="${it.projectKey}" clazz="jb-space-autofill jb-space-cache" />
-        </f:entry>
-
-        <f:entry title="Repository" field="repository">
-            <f:select value="${it.repository}" clazz="jb-space-autofill jb-space-cache"/>
-        </f:entry>
-    </f:optionalBlock>
-
-    <f:optionalBlock title="Override git branch and revision" field="customRevision" checked="${instance.customRevision != null}">
+    <f:optionalBlock title="Override git repository, branch and revision" field="customRevision" checked="${instance.customRevision != null}">
         <j:set var="it" value="${instance.customRevision}"/>
 
         <f:description>
-            Override git branch and revision to report build status for.
-            If this block is not filled, git branch and revision that have been checked out from git will be used.
+            Override git repository, branch and revision to report build status for.
+            If this block is not filled, git repository, branch and revision that have been checked out from git will be used.
         </f:description>
+
+        <f:entry title="Repository" field="repository">
+            <f:select value="${it.repository}" />
+        </f:entry>
 
         <f:entry title="Revision" field="revision">
             <f:textbox value="${it.revision}" />
@@ -42,6 +26,4 @@
             <f:textbox value="${it.branch}" />
         </f:entry>
     </f:optionalBlock>
-
-    <script type="text/javascript" src="${rootURL}/plugin/jetbrains-space/js/select-autofill.js" />
 </j:jelly>

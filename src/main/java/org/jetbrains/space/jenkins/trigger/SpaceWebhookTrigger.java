@@ -5,38 +5,33 @@ import hudson.model.Item;
 import hudson.model.Job;
 import hudson.triggers.Trigger;
 import hudson.triggers.TriggerDescriptor;
-import hudson.util.ListBoxModel;
 
 import java.util.UUID;
 import jenkins.triggers.SCMTriggerItem;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.space.jenkins.scm.SpaceSCMParamsProvider;
+import org.jetbrains.space.jenkins.SpacePayloadHandler;
+import org.jetbrains.space.jenkins.scm.SpaceSCMKt;
 import org.kohsuke.stapler.*;
 import org.kohsuke.stapler.verb.POST;
 
 /**
  * <p>
- * Trigger that runs a job in Jenkins whenever new commits are pushed to a git branch or a merge request is updated in Space.
- * The trigger installs webhooks on Space side and relies on them for listening to the events in Space.
+ * Trigger that runs a job in Jenkins whenever new commits are pushed to a git branch or a merge request is updated in SpaceCode.
+ * The trigger installs webhooks on SpaceCode side and relies on them for listening to the events in SpaceCode.
  * </p>
- * <p>Handling of the incoming webhook event is handled by the {@link SpaceWebhookEndpoint} class.</p>
+ * <p>Handling of the incoming webhook event is handled by the {@link SpacePayloadHandler} class.</p>
  */
 public class SpaceWebhookTrigger extends Trigger<Job<?, ?>> {
 
     @DataBoundConstructor
-    public SpaceWebhookTrigger(String id, String spaceConnectionId, String projectKey, String repositoryName, Boolean allowSafeMergeWithBranches, Boolean allowSafeMergeWithMergeRequests) {
+    public SpaceWebhookTrigger(String id, String repositoryName, Boolean allowSafeMergeWithBranches, Boolean allowSafeMergeWithMergeRequests) {
         this.id = (id != null && !id.isBlank()) ? id : UUID.randomUUID().toString();
-        this.spaceConnectionId = spaceConnectionId;
-        this.projectKey = projectKey;
         this.repositoryName = repositoryName;
         this.triggerType = SpaceWebhookTriggerType.Branches;
         this.allowSafeMerge = allowSafeMergeWithBranches || allowSafeMergeWithMergeRequests;
     }
 
     private final String id;
-    private final String spaceConnectionId;
-    // lgtm[jenkins/plaintext-storage]
-    private final String projectKey;
     private final String repositoryName;
     private final Boolean allowSafeMerge;
 
@@ -58,14 +53,6 @@ public class SpaceWebhookTrigger extends Trigger<Job<?, ?>> {
 
     public Job<?, ?> getJob() {
         return this.job;
-    }
-
-    public String getSpaceConnectionId() {
-        return spaceConnectionId;
-    }
-
-    public String getProjectKey() {
-        return projectKey;
     }
 
     public String getRepositoryName() {
@@ -136,18 +123,18 @@ public class SpaceWebhookTrigger extends Trigger<Job<?, ?>> {
         if (id == null || (!newInstance && spaceWebhookId != null))
             return;
 
-        ensureSpaceWebhook(project.getFullDisplayName());
+        ensureSpaceWebhook();
     }
 
     /**
-     * <p>Ensures that webhook for this trigger is installed properly on the Space side.
-     * The id of the resulting Space webhook is persisted along with the trigger parameters
+     * <p>Ensures that webhook for this trigger is installed properly on the SpaceCode side.
+     * The id of the resulting SpaceCode webhook is persisted along with the trigger parameters
      * to quickly match an arrived event with the webhook that caused it.</p>
      *
-     * <p>Handling of the incoming webhook event is handled by the {@link SpaceWebhookEndpoint} class.</p>
+     * <p>Handling of the incoming webhook event is handled by the {@link SpacePayloadHandler} class.</p>
      */
-    public void ensureSpaceWebhook(String jenkinsProjectName) {
-        this.spaceWebhookId = SpaceWebhookTriggerKt.ensureAndGetSpaceWebhookId(this, jenkinsProjectName);
+    public void ensureSpaceWebhook() {
+        this.spaceWebhookId = SpaceWebhookTriggerKt.ensureAndGetSpaceWebhookId(this);
     }
 
     @SuppressWarnings("unused")
@@ -160,7 +147,7 @@ public class SpaceWebhookTrigger extends Trigger<Job<?, ?>> {
 
         @Override
         public @NotNull String getDisplayName() {
-            return "Triggered by JetBrains Space";
+            return "Triggered by JetBrains SpaceCode";
         }
 
         @Override
@@ -169,18 +156,8 @@ public class SpaceWebhookTrigger extends Trigger<Job<?, ?>> {
         }
 
         @POST
-        public ListBoxModel doFillSpaceConnectionIdItems(@AncestorInPath Item context) {
-            return SpaceSCMParamsProvider.INSTANCE.doFillSpaceConnectionItems(context);
-        }
-
-        @POST
-        public HttpResponse doFillProjectKeyItems(@AncestorInPath Item context, @QueryParameter String spaceConnectionId) {
-            return SpaceSCMParamsProvider.INSTANCE.doFillProjectKeyItems(context, spaceConnectionId);
-        }
-
-        @POST
-        public HttpResponse doFillRepositoryNameItems(@AncestorInPath Item context, @QueryParameter String spaceConnectionId, @QueryParameter String projectKey) {
-            return SpaceSCMParamsProvider.INSTANCE.doFillRepositoryNameItems(context, spaceConnectionId, projectKey);
+        public HttpResponse doFillRepositoryNameItems(@AncestorInPath Job<?,?> context) {
+            return SpaceSCMKt.doFillRepositoryNameItems(context);
         }
     }
 }

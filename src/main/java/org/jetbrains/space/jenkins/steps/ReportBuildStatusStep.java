@@ -5,6 +5,7 @@ import edu.umd.cs.findbugs.annotations.Nullable;
 import hudson.Extension;
 import hudson.ExtensionList;
 import hudson.model.Item;
+import hudson.model.Job;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
@@ -15,7 +16,7 @@ import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.jetbrains.space.jenkins.config.SpacePluginConfiguration;
-import org.jetbrains.space.jenkins.scm.SpaceSCMParamsProvider;
+import org.jetbrains.space.jenkins.scm.SpaceSCMKt;
 import org.kohsuke.stapler.*;
 import org.kohsuke.stapler.verb.POST;
 import space.jetbrains.api.runtime.types.CommitExecutionStatus;
@@ -27,25 +28,16 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * <p>Pipeline step for reporting build status for a git commit to Space.</p>
+ * <p>Pipeline step for reporting build status for a git commit to SpaceCode.</p>
  *
  * <p>
- *     Space connection, project key and repository, if not specified explicitly, are taken from the build trigger settings
+ *     Git repository, revision and branch, if not specified explicitly, are taken from the build trigger settings
  *     or from the git checkout settings.
- * </p>
- *
- * <p>
- *     Git revision and branch, if not specified explicitly,
- *     are taken from the build trigger parameters (if Space webhook trigger is enabled for the build)
- *     or from the git checkout settings (if source code is checked out from a Space repository).
  * </p>
  */
 public class ReportBuildStatusStep extends Step {
 
     private CommitExecutionStatus buildStatus;
-    private String spaceConnection;
-    // lgtm[jenkins/plaintext-storage]
-    private String projectKey;
     private String repository;
     private String revision;
     private String branch;
@@ -58,26 +50,6 @@ public class ReportBuildStatusStep extends Step {
     @Nullable
     private static String blankToNull(String value) {
         return (value != null && !value.isBlank()) ? value : null;
-    }
-
-    @CheckForNull
-    public String getSpaceConnection() {
-        return spaceConnection;
-    }
-
-    @DataBoundSetter
-    public void setSpaceConnection(String spaceConnection) {
-        this.spaceConnection = blankToNull(spaceConnection);
-    }
-
-    @CheckForNull
-    public String getProjectKey() {
-        return projectKey;
-    }
-
-    @DataBoundSetter
-    public void setProjectKey(String projectKey) {
-        this.projectKey = blankToNull(projectKey);
     }
 
     @CheckForNull
@@ -123,8 +95,7 @@ public class ReportBuildStatusStep extends Step {
     public StepExecution start(StepContext context) {
         return ReportBuildStatusStepExecution.Companion.start(
                 this,
-                context,
-                ExtensionList.lookupSingleton(SpacePluginConfiguration.class)
+                context
         );
     }
 
@@ -134,7 +105,7 @@ public class ReportBuildStatusStep extends Step {
 
         @Override
         public @NonNull String getDisplayName() {
-            return "Post build status to JetBrains Space";
+            return "Post build status to JetBrains SpaceCode";
         }
 
         @Override
@@ -148,22 +119,8 @@ public class ReportBuildStatusStep extends Step {
         }
 
         @POST
-        public ListBoxModel doFillSpaceConnectionItems(@AncestorInPath Item context) {
-            return SpaceSCMParamsProvider.INSTANCE.doFillSpaceConnectionItems(context);
-        }
-
-        @POST
-        public HttpResponse doFillProjectKeyItems(@AncestorInPath Item context, @QueryParameter String spaceConnection) {
-            if (spaceConnection.isBlank())
-                return new ListBoxModel();
-            return SpaceSCMParamsProvider.INSTANCE.doFillProjectKeyItems(context, spaceConnection);
-        }
-
-        @POST
-        public HttpResponse doFillRepositoryItems(@AncestorInPath Item context, @QueryParameter String spaceConnection, @QueryParameter String projectKey) {
-            if (spaceConnection.isBlank())
-                return new ListBoxModel();
-            return SpaceSCMParamsProvider.INSTANCE.doFillRepositoryNameItems(context, spaceConnection, projectKey);
+        public HttpResponse doFillRepositoryItems(@AncestorInPath Job<?,?> context) {
+            return SpaceSCMKt.doFillRepositoryNameItems(context);
         }
 
         @POST
@@ -176,26 +133,17 @@ public class ReportBuildStatusStep extends Step {
 
         @POST
         // lgtm[jenkins/no-permission-check]
-        public FormValidation doCheckProjectKey(@QueryParameter String spaceConnection, @QueryParameter String projectKey) {
-            if (!spaceConnection.isBlank() && projectKey.isBlank())
-                return FormValidation.error("Choose project in Space");
+        public FormValidation doCheckRepository(@QueryParameter String repository, @QueryParameter String revision, @QueryParameter String branch) {
+            if (repository.isBlank() && (!branch.isBlank() || !revision.isBlank()))
+                return FormValidation.error("Choose repository in SpaceCode");
 
             return FormValidation.ok();
         }
 
         @POST
         // lgtm[jenkins/no-permission-check]
-        public FormValidation doCheckRepositoryName(@QueryParameter String spaceConnection, @QueryParameter String projectKey, @QueryParameter String repositoryName) {
-            if (!spaceConnection.isBlank() && !projectKey.isBlank() && repositoryName.isBlank())
-                return FormValidation.error("Choose repository in Space");
-
-            return FormValidation.ok();
-        }
-
-        @POST
-        // lgtm[jenkins/no-permission-check]
-        public FormValidation doCheckRevision(@QueryParameter String revision, @QueryParameter String branch) {
-            if (revision.isBlank() && !branch.isBlank())
+        public FormValidation doCheckRevision(@QueryParameter String repository, @QueryParameter String revision, @QueryParameter String branch) {
+            if (revision.isBlank() && (!branch.isBlank() || !repository.isBlank()))
                 return FormValidation.error("Specify git commit");
 
             return FormValidation.ok();
@@ -203,8 +151,8 @@ public class ReportBuildStatusStep extends Step {
 
         @POST
         // lgtm[jenkins/no-permission-check]
-        public FormValidation doCheckBranch(@QueryParameter String revision, @QueryParameter String branch) {
-            if (branch.isBlank() && !revision.isBlank())
+        public FormValidation doCheckBranch(@QueryParameter String repository, @QueryParameter String revision, @QueryParameter String branch) {
+            if (branch.isBlank() && (!repository.isBlank() || !revision.isBlank()))
                 return FormValidation.error("Specify git branch");
 
             return FormValidation.ok();
@@ -212,13 +160,12 @@ public class ReportBuildStatusStep extends Step {
 
         /**
          * Creates a new instance of {@link ReportBuildStatusStep} from the POST request coming from a submitted Jelly form.
-         * Flattens overriden Space connection and revision sections before passing on the form data to the default Stapler binding logic.
+         * Flattens overriden SpaceCode connection and revision sections before passing on the form data to the default Stapler binding logic.
          * This is needed because those parameters are part of nested optional sections in the Jelly form,
          * but are listed as plain parameters in the scripted form of a pipeline step call for the ease of pipeline script authoring.
          */
         @Override
         public ReportBuildStatusStep newInstance(@Nullable StaplerRequest req, @NonNull JSONObject formData) throws FormException {
-            BuildStepUtilsKt.flattenNestedObject(formData, "customSpaceConnection");
             BuildStepUtilsKt.flattenNestedObject(formData, "customRevision");
             return (ReportBuildStatusStep)super.newInstance(req, formData);
         }

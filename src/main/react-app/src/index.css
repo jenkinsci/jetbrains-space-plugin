@@ -1,0 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.jb-space-select {
+    border: 2px solid var(--input-border);
+    border-radius: 6px;
+}

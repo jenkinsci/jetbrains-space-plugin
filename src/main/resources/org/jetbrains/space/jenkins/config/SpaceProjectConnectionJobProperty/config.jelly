@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+    <script type="text/javascript" src="${rootURL}/plugin/jetbrains-space/js/load-react-app.js" />
+    <script type="text/javascript" src="${rootURL}/plugin/jetbrains-space/js/space-project-connection.js" />
+    <div class="jb-space-project-connection">
+        <f:optionalBlock
+                title="JetBrains SpaceCode project"
+                checked="${instance.projectKey.length() > 0}"
+                inline="true">
+            <div style="display:none" class="form-fields">
+                <f:textbox field="spaceConnectionId" name="spaceConnectionId"/>
+                <f:textbox field="projectKey" name="projectKey"/>
+            </div>
+            <div class="react-root"/>
+        </f:optionalBlock>
+    </div>
+</j:jelly>

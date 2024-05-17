@@ -14,9 +14,9 @@ import java.util.Objects;
 import static org.jetbrains.space.jenkins.listeners.SpaceGitScmCheckoutActionKt.putMergeRequestProperties;
 
 /**
- * Contributes environment variables to a Jenkins build triggered by a Space webhook.
+ * Contributes environment variables to a Jenkins build triggered by a SpaceCode webhook.
  * It retrieves information from the webhook cause and sets the corresponding environment variables
- * providing information about the Space instance, project, repository and merge request (if build was triggered by the changes to a merge rquest).
+ * providing information about the SpaceCode instance, project, repository and merge request (if build was triggered by the changes to a merge request).
  */
 @Extension
 public class SpaceTriggerEnvironmentContributor extends EnvironmentContributor {

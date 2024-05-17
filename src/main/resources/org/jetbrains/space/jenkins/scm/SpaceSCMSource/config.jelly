@@ -1,26 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:s="/jenkins/scm/api/form">
-    <f:entry title="JetBrains Space connection">
-        <f:select field="spaceConnectionId" clazz="jb-space-autofill jb-space-cache" />
-    </f:entry>
+    <script type="text/javascript" src="${rootURL}/plugin/jetbrains-space/js/load-react-app.js" />
+    <script type="text/javascript" src="${rootURL}/plugin/jetbrains-space/js/space-repo-connection.js" />
 
-    <f:entry title="Project">
-        <f:select field="projectKey" clazz="jb-space-autofill jb-space-cache" />
-    </f:entry>
+    <div class="jb-space-repo-connection" style="margin-top: 16px">
+        <div style="display:none" class="form-fields">
+            <f:textbox field="spaceConnectionId" name="spaceConnectionId"/>
+            <f:textbox field="projectKey" name="projectKey"/>
+            <f:textbox field="repository" name="repository" />
+        </div>
+        <div class="react-root"/>
+    </div>
 
-    <f:entry title="Repository">
-        <f:select field="repositoryName" clazz="jb-space-autofill jb-space-cache" />
-    </f:entry>
+    <f:radioBlock name="type" value="Branches" title="Discover branches"
+                  checked="${instance.type == 'Branches' }" inline="true">
+        <f:entry title="Branch specs" field="branchSpec">
+            <f:textbox name="branchSpec" placeholder="*" autoCompleteDelimChar=";"/>
+        </f:entry>
+    </f:radioBlock>
+
+    <f:radioBlock name="type" value="MergeRequests" title="Discover merge requests"
+                  checked="${instance.type == 'MergeRequests' }" inline="true">
+        <f:entry title="Source branch specs" field="mergeRequestSourceBranchSpec">
+            <f:textbox name="mergeRequestSourceBranchSpec" placeholder="*" autoCompleteDelimChar=","/>
+        </f:entry>
+        <f:entry title="Target branch specs" field="mergeRequestTargetBranchSpec">
+            <f:textbox name="mergeRequestTargetBranchSpec" placeholder="*" autoCompleteDelimChar=","/>
+        </f:entry>
+        <f:entry title="Title filter regex" field="mergeRequestTitleRegex">
+            <f:textbox name="mergeRequestTitleRegex" placeholder="Leave blank for none"/>
+        </f:entry>
+    </f:radioBlock>
 
     <f:entry title="Behaviours">
         <s:traits field="traits" />
     </f:entry>
-
-    <f:invisibleEntry>
-        <f:textbox field="id" />
-    </f:invisibleEntry>
-
-    <script type="text/javascript" src="${rootURL}/plugin/jetbrains-space/js/select-autofill.js" />
-
 </j:jelly>

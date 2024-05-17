@@ -6,9 +6,14 @@ import hudson.plugins.git.GitSCM
 import hudson.plugins.git.RevisionParameterAction
 import hudson.scm.SCM
 import io.ktor.http.*
+import jenkins.branch.MultiBranchProject
 import jenkins.model.Jenkins
 import kotlinx.coroutines.runBlocking
-import org.jetbrains.space.jenkins.config.*
+import org.jenkinsci.plugins.workflow.multibranch.BranchJobProperty
+import org.jetbrains.space.jenkins.*
+import org.jetbrains.space.jenkins.config.SpacePluginConfiguration
+import org.jetbrains.space.jenkins.config.SpaceProjectConnection
+import org.jetbrains.space.jenkins.config.getApiClient
 import org.jetbrains.space.jenkins.scm.*
 import org.jetbrains.space.jenkins.steps.PostBuildStatusAction
 import org.jetbrains.space.jenkins.trigger.BuildIdPrefix
@@ -24,7 +29,7 @@ import java.util.logging.Logger
 
 /**
  * Handles the event of checking out code from a git repository.
- * Posts build status RUNNING to Space and appends an instance of [SpaceGitScmCheckoutAction] to the build metadata.
+ * Posts build status RUNNING to SpaceCode and appends an instance of [SpaceGitScmCheckoutAction] to the build metadata.
  * Invoked from [SCMListenerImpl]
  */
 fun onScmCheckout(build: Run<*, *>, scm: SCM, listener: TaskListener, spacePluginConfiguration: SpacePluginConfiguration) {
@@ -37,43 +42,56 @@ fun onScmCheckout(build: Run<*, *>, scm: SCM, listener: TaskListener, spacePlugi
     }
     val gitScmEnv = mutableMapOf<String, String>()
     underlyingGitScm.buildEnvironment(build, gitScmEnv)
+    val gitUrl = gitScmEnv[GitSCM.GIT_URL]
 
-    val (space, forcedMergeRequest) = when {
+    val (spaceScmCheckoutParams, forcedMergeRequest) = when {
         scm is SpaceSCM -> {
             val (space, _, mergeRequest) = spacePluginConfiguration.getSpaceGitCheckoutParams(scm, build.parent, build)
             space to mergeRequest
         }
 
-        gitScmEnv[GitSCM.GIT_URL] != null && gitScmEnv[GitSCM.GIT_COMMIT] != null -> {
-            spacePluginConfiguration.getSpaceGitCheckoutParamsByCloneUrl(gitScmEnv[GitSCM.GIT_URL]!!)?.let { space ->
-                space to build.getForcedMergeRequest(space)
-            }
+        gitUrl != null && gitScmEnv[GitSCM.GIT_COMMIT] != null -> {
+            spacePluginConfiguration
+                .getSpaceGitCheckoutParamsByCloneUrl(build.getParent(), gitScmEnv[GitSCM.GIT_URL]!!)
+                ?.let { space ->
+                    space to build.getForcedMergeRequest(space)
+                }
         }
 
         else ->
             null
     } ?: run  {
-        LOGGER.info("SpaceSCMListener.onCheckout - no Space git repository found")
+        LOGGER.info("SpaceSCMListener.onCheckout - no SpaceCode git repository found")
         return
     }
 
+    val (spaceConnection, spaceUrl) = build.getParent().getProjectConnection()
+        ?: run {
+            LOGGER.warning("SpaceSCMListener.onCheckout - SpaceCode connection not found")
+            return
+        }
+
     val triggerCause = forcedMergeRequest
-        ?.let { TriggerCause.fromMergeRequest(it, space.connection) }
+        ?.let { TriggerCause.fromMergeRequest(it, spaceUrl) }
         ?.takeIf { it.sourceBranch == gitScmEnv[GitSCM.GIT_BRANCH] }
         ?: build.getCause(SpaceWebhookTriggerCause::class.java)
-            ?.takeIf {
-                it.spaceConnectionId == space.connection.id &&
-                        it.projectKey == space.projectKey &&
-                        it.repositoryName == space.repositoryName &&
-                        it.cause.branchForCheckout == gitScmEnv[GitSCM.GIT_BRANCH]
+            ?.takeIf { cause ->
+                val branchName = gitScmEnv[GitSCM.GIT_BRANCH]?.let {
+                    if (it.startsWith(cause.repositoryName))
+                        it.replace(cause.repositoryName, "refs/heads")
+                    else
+                        it
+                }
+                cause.repositoryName == spaceScmCheckoutParams.repositoryName
+                        && cause.cause.branchForCheckout == branchName
             }
             ?.cause
+        ?: (build.getParent().getProperty(BranchJobProperty::class.java)?.branch?.head as? SpaceSCMHead)?.triggerCause
 
     val spaceGitCheckoutAction = SpaceGitScmCheckoutAction(
-        spaceConnectionId = space.connection.id,
-        spaceUrl = space.connection.baseUrl,
-        projectKey = space.projectKey,
-        repositoryName = space.repositoryName,
+        spaceUrl = spaceUrl,
+        projectKey = spaceConnection.projectKey,
+        repositoryName = spaceScmCheckoutParams.repositoryName,
         branch = gitScmEnv[GitSCM.GIT_BRANCH].orEmpty(),
         revision = gitScmEnv[GitSCM.GIT_COMMIT]!!,
         postBuildStatusToSpace = triggerCause != null && ((scm as? SpaceSCM)?.postBuildStatusToSpace ?: false),
@@ -91,7 +109,6 @@ fun onScmCheckout(build: Run<*, *>, scm: SCM, listener: TaskListener, spacePlugi
 
     if (existingActions.any()) {
         val allActions = build.getActions(SpaceGitScmCheckoutAction::class.java)
-        val hasDistinctSpaceConnections = allActions.distinctBy { it.spaceConnectionId }.size > 1
         build.removeActions(SpaceGitScmCheckoutAction::class.java)
         allActions
             .sortedBy { it.cause == null }
@@ -99,46 +116,42 @@ fun onScmCheckout(build: Run<*, *>, scm: SCM, listener: TaskListener, spacePlugi
                 build.addAction(
                     a.copy(
                         sourceDisplayName = listOfNotNull(
-                            a.spaceConnectionId
-                                .takeIf { hasDistinctSpaceConnections },
-                            a.projectKey
-                                .takeIf { allActions.hasDistinctProjects(a.spaceConnectionId) },
-                            a.repositoryName
-                                .takeIf { allActions.hasDistinctRepos(a.spaceConnectionId, a.projectKey) },
-                            a.branch
-                                .takeIf { allActions.hasDistinctBranches(a.spaceConnectionId, a.projectKey, a.repositoryName) }
+                            a.repositoryName.takeIf { allActions.hasDistinctRepos() },
+                            a.branch.takeIf { allActions.hasDistinctBranches(a.repositoryName) }
                         ).takeUnless { it.isEmpty() }?.joinToString(" \\ ")
                     )
                 )
             }
     }
 
-    if (triggerCause != null) {
-        build.addAction(RevisionParameterAction(triggerCause.commitId))
+    triggerCause?.commitId?.let {
+        build.addAction(RevisionParameterAction(it))
     }
 
     if (spaceGitCheckoutAction.postBuildStatusToSpace && (duplicate == null || !duplicate.postBuildStatusToSpace)) {
-        try {
-            runBlocking {
-                space.connection.getApiClient().postBuildStatus(spaceGitCheckoutAction, build)
+        runBlocking {
+            try {
+                spaceScmCheckoutParams.getApiClient().use {
+                    it.postBuildStatus(spaceGitCheckoutAction, build)
+                }
+            } catch (ex: Throwable) {
+                val message = "Failed to post build status to JetBrains SpaceCode, details: $ex"
+                LOGGER.warning(message)
+                listener.logger.println(message)
             }
-        } catch (ex: Throwable) {
-            val message = "Failed to post build status to JetBrains Space, details: $ex"
-            LOGGER.warning(message)
-            listener.logger.println(message)
         }
     }
 }
 
-private fun List<SpaceGitScmCheckoutAction>.hasDistinctProjects(spaceConnectionId: String) =
-    filter { it.spaceConnectionId == spaceConnectionId }.distinctBy { it.projectKey }.size > 1
+private fun List<SpaceGitScmCheckoutAction>.hasDistinctRepos() =
+    distinctBy { it.repositoryName }.size > 1
 
-private fun List<SpaceGitScmCheckoutAction>.hasDistinctRepos(spaceConnectionId: String, projectKey: String) =
-    filter { it.spaceConnectionId == spaceConnectionId && it.projectKey == projectKey }.distinctBy { it.repositoryName }.size > 1
+private fun List<SpaceGitScmCheckoutAction>.hasDistinctBranches(repositoryName: String) =
+    filter { it.repositoryName == repositoryName }.distinctBy { it.branch }.size > 1
 
-private fun List<SpaceGitScmCheckoutAction>.hasDistinctBranches(spaceConnectionId: String, projectKey: String, repositoryName: String) =
-    filter { it.spaceConnectionId == spaceConnectionId && it.projectKey == projectKey && it.repositoryName == repositoryName }.distinctBy { it.branch }.size > 1
-
+/**
+ * Defines the list of fields to request from SpaceCode when fetching merge request data
+ */
 val mergeRequestFields: CodeReviewRecordPartial.() -> Unit = {
     id()
     number()
@@ -148,42 +161,51 @@ val mergeRequestFields: CodeReviewRecordPartial.() -> Unit = {
     }
     branchPairs {
         repository()
-        sourceBranchInfo()
-        targetBranchInfo()
+        sourceBranchInfo {
+            ref()
+            head()
+            displayName()
+        }
+        targetBranchInfo  {
+            ref()
+            head()
+            displayName()
+        }
     }
 }
 
 /**
  * Handles the event of build completion.
- * If a build has been triggered by a change in Space or has checked out source code from a Space git repository,
- * posts the resulting build status to Space (unless automatic posting is disabled).
+ * If a build has been triggered by a change in SpaceCode or has checked out source code from a SpaceCode git repository,
+ * posts the resulting build status to SpaceCode (unless automatic posting is disabled).
  * Invoked from [RunListenerImpl]
  */
-fun onBuildCompleted(build: Run<*, *>, listener: TaskListener, spacePluginConfiguration: SpacePluginConfiguration) {
+fun onBuildCompleted(build: Run<*, *>, listener: TaskListener) {
     val postBuildStatusActions = build.getActions(PostBuildStatusAction::class.java)
     val checkoutActions = build.getActions(SpaceGitScmCheckoutAction::class.java)
         .filter(SpaceGitScmCheckoutAction::postBuildStatusToSpace)
         .filter { action: SpaceGitScmCheckoutAction ->
             postBuildStatusActions.stream()
-                .noneMatch { a: PostBuildStatusAction ->
-                    a.spaceConnectionId == action.spaceConnectionId &&
-                            a.projectKey == action.projectKey
-                            && a.repositoryName == action.repositoryName
-                }
+                .noneMatch { a: PostBuildStatusAction -> a.repositoryName == action.repositoryName }
+        }
+
+    val (spaceConnection, spaceUrl) = build.getParent().getProjectConnection()
+        ?: run {
+            val message = "SpaceCode connection not found"
+            LOGGER.warning(message)
+            listener.logger.println(message)
+            return
         }
 
     for (action in checkoutActions) {
-        val spaceConnection = spacePluginConfiguration.getConnectionById(action.spaceConnectionId)
-        if (spaceConnection == null) {
-            LOGGER.info("RunListenerImpl.onCompleted - could not find Space connection")
-            return
-        }
         try {
             runBlocking {
-                spaceConnection.getApiClient().postBuildStatus(action, build)
+                spaceConnection.getApiClient(spaceUrl).use {
+                    it.postBuildStatus(action, build)
+                }
             }
         } catch (ex: Exception) {
-            val message = "Failed to post build status to JetBrains Space, details: $ex"
+            val message = "Failed to post build status to JetBrains SpaceCode, details: $ex"
             LOGGER.warning(message)
             listener.logger.println(message)
         }
@@ -202,72 +224,65 @@ private fun getUnderlyingGitSCM(scm: SCM?): GitSCM? {
     return null
 }
 
-class SpaceGitCheckoutParams(
-    val connection: SpaceConnection,
-    @field:SuppressWarnings("lgtm[jenkins/plaintext-storage]")
-    val projectKey: String,
-    val repositoryName: String
-)
-
 /**
- * Retrieves Space connection, project, repository and the list of branch specs for a given job with Space SCM settings.
- * Takes the checkout parameters from the SCM settings itself if specified explicitly there, otherwise falls back to build trigger settings.
- *
- * @throws IllegalArgumentException If the Space connection is not specified in the source checkout settings or build trigger.
+ * Groups together SpaceCode url, project-level connection and repository name
  */
-fun SpacePluginConfiguration.getSpaceGitCheckoutParams(scm: SpaceSCM, job: Job<*, *>, build: Run<*, *>?): Triple<SpaceGitCheckoutParams, List<BranchSpec>, MergeRequestRecord?> {
-
-    val customSpaceConnection = scm.customSpaceConnection
-    val spaceWebhookTrigger = getSpaceWebhookTrigger(job)
-    val triggerCause = build?.getCause(SpaceWebhookTriggerCause::class.java)
-
-    return when {
-        customSpaceConnection != null -> {
-            val params = SpaceGitCheckoutParams(
-                connection = getConnectionById(customSpaceConnection.spaceConnection)
-                    ?: throw IllegalArgumentException("JetBrains Space connection with id \"${customSpaceConnection.spaceConnection}\" does not exist"),
-                projectKey = customSpaceConnection.projectKey,
-                repositoryName = customSpaceConnection.repository
-            )
-            val forcedMergeRequest = build?.getForcedMergeRequest(params)
-            val branchesFromTrigger = triggerCause
-                ?.takeIf { it.projectKey == customSpaceConnection.projectKey && it.repositoryName == customSpaceConnection.repository }
-                ?.let { listOf(BranchSpec(it.cause.branchForCheckout)) }
-                .orEmpty()
-            val branches = forcedMergeRequest?.branchPairs?.firstOrNull()?.sourceBranchInfo?.head?.let { listOf(BranchSpec(it)) }
-                ?: build?.getForcedBranchName()?.let { listOf(BranchSpec(it)) }
-                ?: (customSpaceConnection.branches.orEmpty() + branchesFromTrigger).takeUnless { it.isEmpty() }
-                ?: listOf(BranchSpec("refs/heads/*"))
-
-            Triple(params, branches, forcedMergeRequest)
-        }
-
-        spaceWebhookTrigger != null -> {
-            val params = SpaceGitCheckoutParams(
-                connection = getConnectionById(spaceWebhookTrigger.spaceConnectionId)
-                    ?: throw IllegalArgumentException("Space connection specified in trigger not found"),
-                projectKey = spaceWebhookTrigger.projectKey,
-                repositoryName = spaceWebhookTrigger.repositoryName
-            )
-            val forcedMergeRequest = build?.getForcedMergeRequest(params)
-            val branches = forcedMergeRequest?.branchPairs?.firstOrNull()?.sourceBranchInfo?.head?.let { listOf(BranchSpec(it)) }
-                ?: build?.getForcedBranchName()?.let { listOf(BranchSpec(it)) }
-                ?: listOf(BranchSpec(triggerCause?.let { it.cause.branchForCheckout } ?: "refs/*"))
-
-            Triple(params, branches, forcedMergeRequest)
-        }
-
-        else -> {
-            throw IllegalArgumentException("JetBrains Space connection is not specified neither in the source checkout settings nor in build trigger")
-        }
-    }
+class SpaceGitCheckoutParams(
+    val baseUrl: String,
+    val connection: SpaceProjectConnection,
+    val repositoryName: String
+) {
+    fun getApiClient() =
+        connection.getApiClient(baseUrl)
 }
 
 /**
- * Tries to match git clone url to the one of the Space connections configured globally.
- * If a Space connection is found, project key and repository name are extracted from the git clone url itself.
+ * Retrieves SpaceCode connection, project, repository and the list of branch specs for a given job with SpaceCode SCM settings.
+ * Takes the checkout parameters from the SCM settings itself if specified explicitly there, otherwise falls back to build trigger settings.
+ *
+ * @throws IllegalArgumentException If the SpaceCode connection is not specified in the source checkout settings or build trigger.
  */
-private fun SpacePluginConfiguration.getSpaceGitCheckoutParamsByCloneUrl(gitCloneUrl: String): SpaceGitCheckoutParams? {
+fun SpacePluginConfiguration.getSpaceGitCheckoutParams(scm: SpaceSCM, job: Job<*, *>, build: Run<*, *>?): Triple<SpaceGitCheckoutParams, String?, MergeRequestRecord?> {
+
+    val customSpaceRepository = scm.customSpaceRepository
+    val spaceWebhookTrigger = getSpaceWebhookTrigger(job)
+    val triggerCause = build?.getCause(SpaceWebhookTriggerCause::class.java)
+    val spaceScmHead = job.getProperty(BranchJobProperty::class.java)?.branch?.head as? SpaceSCMHead
+    val multiBranchProjectScmSource = job.getMultiBranchSpaceScmSource()
+
+    val (spaceConnection, spaceUrl) = job.getProjectConnection()
+        ?: error("JetBrains SpaceCode connection not found")
+
+    val repositoryName = customSpaceRepository?.repository
+        ?: spaceWebhookTrigger?.repositoryName
+        ?: multiBranchProjectScmSource?.repository
+        ?: error("JetBrains SpaceCode connection is not specified neither in the source checkout settings nor in the build trigger")
+
+    val params = SpaceGitCheckoutParams(spaceUrl, spaceConnection, repositoryName)
+    val forcedMergeRequest = build?.getForcedMergeRequest(params)
+
+    val branchToBuild =
+        forcedMergeRequest?.branchPairs?.firstOrNull()?.sourceBranchInfo?.head
+            ?: build?.getForcedBranchName()
+            ?: when {
+                spaceWebhookTrigger != null ->
+                    triggerCause?.cause?.branchForCheckout
+                spaceScmHead != null ->
+                    spaceScmHead.getFullRef()
+                customSpaceRepository != null && !customSpaceRepository.refspec.contains('*') && !customSpaceRepository.refspec.contains(' ') ->
+                    customSpaceRepository.refspec
+                else ->
+                    null
+            }
+
+    return Triple(params, branchToBuild, forcedMergeRequest)
+}
+
+/**
+ * Tries to match git clone url to the one of the SpaceCode connections configured globally.
+ * If a SpaceCode connection is found, project key and repository name are extracted from the git clone url itself.
+ */
+private fun SpacePluginConfiguration.getSpaceGitCheckoutParamsByCloneUrl(job: Job<*, *>, gitCloneUrl: String): SpaceGitCheckoutParams? {
     val url = try {
         Url(gitCloneUrl)
     } catch (e: URLParserException) {
@@ -275,9 +290,8 @@ private fun SpacePluginConfiguration.getSpaceGitCheckoutParamsByCloneUrl(gitClon
         return null;
     }
 
-    if (!url.host.startsWith("git.")) {
+    if (!url.host.startsWith("git."))
         return null;
-    }
 
     val (baseUrlHostname, projectKey, repositoryName) =
         if (url.host.endsWith(".jetbrains.space")) {
@@ -294,16 +308,16 @@ private fun SpacePluginConfiguration.getSpaceGitCheckoutParamsByCloneUrl(gitClon
             Triple(url.host.substring("git.".length), url.pathSegments[0], url.pathSegments[1])
         }
 
-    return connections
-        .firstOrNull {
-            try {
-                baseUrlHostname == Url(it.baseUrl).host
-            } catch (e: URLParserException) {
-                LOGGER.warning("Malformed Space connection base url - ${it.baseUrl}")
-                false
-            }
+    val (spaceConnection, spaceUrl) = job.getProjectConnection() ?: return null
+
+    return SpaceGitCheckoutParams(spaceUrl, spaceConnection, repositoryName).takeIf {
+        try {
+            Url(spaceUrl).host == baseUrlHostname && it.connection.projectKey == projectKey
+        } catch (e: URLParserException) {
+            LOGGER.warning("Malformed SpaceCode connection base url - ${it.baseUrl}")
+            false
         }
-        ?.let { SpaceGitCheckoutParams(it, projectKey, repositoryName) }
+    }
 }
 
 private suspend fun SpaceClient.postBuildStatus(action: SpaceGitScmCheckoutAction, build: Run<*, *>, status: CommitExecutionStatus? = null) {
