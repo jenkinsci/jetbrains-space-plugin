@@ -21,6 +21,8 @@ public class SpacePluginConfiguration extends Descriptor<SpacePluginConfiguratio
     public SpacePluginConfiguration() {
         super(SpacePluginConfiguration.class);
         load();
+        if (connections == null)
+            connections = new ArrayList<>();
     }
 
     public List<SpaceConnection> getConnections() {
